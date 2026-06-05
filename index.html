@@ -135,28 +135,17 @@
     .field-group { margin-bottom: 16px; }
     .field-group:last-child { margin-bottom: 0; }
 
-    /* ── Size Picker ── */
-    .size-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    /* Size Picker entfernt – Länge/Breite-Slider wird genutzt */
 
-    .size-option input { display: none; }
-    .size-option label {
-      display: block;
-      text-align: center;
-      padding: 9px 4px;
-      border-radius: 10px;
-      border: 1px solid var(--em-border);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      color: var(--em-text-muted);
-      transition: all 0.18s;
-    }
-    .size-option label:hover { border-color: rgba(245,158,11,0.4); color: var(--em-text); }
-    .size-option input:checked + label {
-      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
-      color: #1a1208;
-      border-color: transparent;
-      box-shadow: 0 2px 12px rgba(245,158,11,0.35);
+    .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .mass-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 700;
+      padding: 3px 10px; border-radius: 20px;
+      background: rgba(245,158,11,0.10);
+      color: var(--em-accent-1);
+      border: 1px solid rgba(245,158,11,0.20);
     }
 
     /* ── Hardness Slider ── */
@@ -515,7 +504,13 @@
 // ═══════════════════════════════════════
 // PHYSICS
 // ═══════════════════════════════════════
-const EGG_MASS   = { S:43, M:53, L:63, XL:73 };
+// Masse aus Ellipsoid-Formel: M = (4/3 × π × L/2 × (B/2)²) × ρ   [g]
+function eggMass(Lmm, Bmm) {
+  const a = Lmm / 2, b = Bmm / 2;          // Halbachsen in mm
+  const vol = (4/3) * Math.PI * a * b * b; // mm³
+  return vol * 1.032e-3;                   // g  (ρ = 1.032 g/cm³)
+}
+
 // Starttemperatur direkt in °C (kein Lookup mehr nötig)
 
 function boilingPoint(altM) { return 100 - altM / 294; }
@@ -526,8 +521,8 @@ function targetTemp(h) {
   return 71 + (82 - 71) * ((h - 0.5) * 2);
 }
 
-function cookSec(size, hardness, tempC, altM) {
-  const M   = EGG_MASS[size];
+function cookSec(Lmm, Bmm, hardness, tempC, altM) {
+  const M   = eggMass(Lmm, Bmm);
   const c   = 3.7;     // J/(g·K)
   const rho = 1.032;   // g/cm³
   const K   = 5.4e-3;  // W/(cm·K)
@@ -558,7 +553,7 @@ let eggs     = [mkEgg(1)];
 let timers   = [];
 let ticker   = null;
 
-function mkEgg(id) { return { id, size:'L', hardness:0.5, tempC:5 }; }
+function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:5 }; }
 
 // ═══════════════════════════════════════
 // GPS
@@ -612,7 +607,7 @@ function renderEggs() {
 }
 
 function buildCard(egg) {
-  const sec = cookSec(egg.size, egg.hardness, egg.tempC, altitude);
+  const sec = cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude);
   const canRemove = eggs.length > 1;
   const d = document.createElement('div');
   d.className = 'egg-card';
@@ -624,15 +619,35 @@ function buildCard(egg) {
     </div>
 
     <div class="field-group">
-      <div class="field-label">Größe</div>
-      <div class="size-picker">
-        ${['S','M','L','XL'].map(s=>`
-          <div class="size-option">
-            <input type="radio" name="sz${egg.id}" id="sz${egg.id}${s}" value="${s}"
-              ${egg.size===s?'checked':''}
-              onchange="upd(${egg.id},'size','${s}')">
-            <label for="sz${egg.id}${s}">${s}</label>
-          </div>`).join('')}
+      <div class="field-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Ei-Größe (Lineal)</span>
+        <span class="mass-badge" id="mass-${egg.id}">~${Math.round(eggMass(egg.eggL,egg.eggB))} g</span>
+      </div>
+      <div class="dim-grid">
+        <div>
+          <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
+            <span>↔ Länge</span><span id="lblL-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggL} mm</span>
+          </div>
+          <div class="hardness-wrap">
+            <input type="range" class="hardness-slider"
+              id="slL-${egg.id}" min="45" max="75" step="1" value="${egg.eggL}"
+              style="--val:${((egg.eggL-45)/30).toFixed(3)}"
+              oninput="onDimSlider(${egg.id},'eggL',this,45,30)">
+            <div class="hardness-labels"><span>45</span><span>75 mm</span></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
+            <span>↕ Breite</span><span id="lblB-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggB} mm</span>
+          </div>
+          <div class="hardness-wrap">
+            <input type="range" class="hardness-slider"
+              id="slB-${egg.id}" min="35" max="58" step="1" value="${egg.eggB}"
+              style="--val:${((egg.eggB-35)/23).toFixed(3)}"
+              oninput="onDimSlider(${egg.id},'eggB',this,35,23)">
+            <div class="hardness-labels"><span>35</span><span>58 mm</span></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -686,6 +701,21 @@ function onSlider(id, el) {
   upd(id, 'hardness', parseFloat(el.value));
 }
 
+function onDimSlider(id, field, el, min, range) {
+  const val = parseInt(el.value, 10);
+  el.style.setProperty('--val', ((val - min) / range).toFixed(3));
+  // Label aktualisieren
+  const lbl = document.getElementById(field === 'eggL' ? `lblL-${id}` : `lblB-${id}`);
+  if (lbl) lbl.textContent = `${val} mm`;
+  upd(id, field, val);
+  // Masse-Badge aktualisieren
+  const egg = eggs.find(e => e.id === id);
+  if (egg) {
+    const badge = document.getElementById(`mass-${id}`);
+    if (badge) badge.textContent = `~${Math.round(eggMass(egg.eggL, egg.eggB))} g`;
+  }
+}
+
 function onTempSlider(id, el) {
   const t = parseInt(el.value, 10);
   // --val für Farbverlauf: normalisiert auf 0–1
@@ -714,7 +744,7 @@ function refreshPreview(id) {
   if (!egg) return;
   const el = document.getElementById(`prev-${id}`);
   if (el) el.querySelector('.preview-time').textContent =
-    fmt(cookSec(egg.size, egg.hardness, egg.tempC, altitude));
+    fmt(cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude));
 }
 
 function refreshPreviews() { eggs.forEach(e => refreshPreview(e.id)); }
@@ -739,7 +769,7 @@ function startTimers() {
 
   timers = eggs.map(egg => ({
     egg: {...egg},
-    total: cookSec(egg.size, egg.hardness, egg.tempC, altitude),
+    total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude),
     started: Date.now(),
     done: false
   }));
@@ -776,7 +806,7 @@ function buildTimerCards() {
       <div class="timer-info">
         <div class="timer-egg-name">Ei ${t.egg.id}</div>
         <div class="timer-egg-desc">
-          ${t.egg.size} · ${hardLabel(t.egg.hardness)} ·
+          ${t.egg.eggL}×${t.egg.eggB} mm · ~${Math.round(eggMass(t.egg.eggL,t.egg.eggB))} g · ${hardLabel(t.egg.hardness)} ·
           ${t.egg.tempC <= 10 ? '🧊' : '🌡️'} ${t.egg.tempC} °C
         </div>
         <div class="status-pill" id="sp-${i}">
@@ -827,10 +857,10 @@ function tick() {
 
 function onDone(egg) {
   beep();
-  toast(`Ei ${egg.id} (${egg.size}, ${hardLabel(egg.hardness)}) ist fertig! 🥚`, 'success');
+  toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🥚`, 'success');
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('🥚 Eiermeister', {
-      body: `Ei ${egg.id} — ${egg.size}, ${hardLabel(egg.hardness)} — ist fertig!`
+      body: `Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${egg.eggL}×${egg.eggB} mm — ist fertig!`
     });
   }
 }
