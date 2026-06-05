@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Eiermeister</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1208">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Eiermeister">
+  <style>
+    :root {
+      --em-bg-1:        #1a1208;
+      --em-bg-2:        #261b0c;
+      --em-accent-1:    #f59e0b;
+      --em-accent-2:    #f97316;
+      --em-accent-3:    #eab308;
+      --em-text:        #f3f4f6;
+      --em-text-muted:  #9ca3af;
+      --em-border:      rgba(255,255,255,0.08);
+      --em-card-bg:     rgba(255,255,255,0.04);
+      --em-card-hover:  rgba(255,255,255,0.07);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--em-bg-1);
+      color: var(--em-text);
+      min-height: 100dvh;
+      background-image:
+        radial-gradient(ellipse at 15% 15%, rgba(245,158,11,0.09) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 85%, rgba(249,115,22,0.07) 0%, transparent 55%);
+    }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 16px 100px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 0 16px;
+    }
+
+    .header-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .altitude-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--em-text-muted);
+      background: var(--em-card-bg);
+      border: 1px solid var(--em-border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .altitude-badge:hover { background: var(--em-card-hover); color: var(--em-text); }
+
+    .alt-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--em-accent-1);
+      flex-shrink: 0;
+    }
+    .alt-dot.loading { animation: blink 1.2s ease-in-out infinite; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    /* ── Egg Cards ── */
+    .eggs-container { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+
+    .egg-card {
+      background: var(--em-card-bg);
+      border: 1px solid var(--em-border);
+      border-radius: 20px;
+      padding: 20px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .egg-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(245,158,11,0.10);
+    }
+
+    .egg-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .egg-card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+    .remove-btn {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 1px solid var(--em-border);
+      background: transparent;
+      color: var(--em-text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .remove-btn:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: #ef4444; }
+
+    /* ── Field Groups ── */
+    .field-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--em-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 8px;
+    }
+    .field-group { margin-bottom: 16px; }
+    .field-group:last-child { margin-bottom: 0; }
+
+    /* ── Size Picker ── */
+    .size-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+    .size-option input { display: none; }
+    .size-option label {
+      display: block;
+      text-align: center;
+      padding: 9px 4px;
+      border-radius: 10px;
+      border: 1px solid var(--em-border);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--em-text-muted);
+      transition: all 0.18s;
+    }
+    .size-option label:hover { border-color: rgba(245,158,11,0.4); color: var(--em-text); }
+    .size-option input:checked + label {
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      color: #1a1208;
+      border-color: transparent;
+      box-shadow: 0 2px 12px rgba(245,158,11,0.35);
+    }
+
+    /* ── Hardness Slider ── */
+    .hardness-wrap { position: relative; padding-bottom: 22px; }
+
+    .hardness-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+      background: linear-gradient(to right,
+        var(--em-accent-1) 0%,
+        var(--em-accent-1) calc(var(--val,0.5) * 100%),
+        rgba(255,255,255,0.1) calc(var(--val,0.5) * 100%)
+      );
+    }
+    .hardness-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(245,158,11,0.55);
+      border: 2px solid rgba(255,255,255,0.15);
+      transition: transform 0.15s;
+    }
+    .hardness-slider::-webkit-slider-thumb:active { transform: scale(1.2); }
+    .hardness-slider::-moz-range-thumb {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(245,158,11,0.55);
+      border: 2px solid rgba(255,255,255,0.15);
+    }
+
+    .hardness-labels {
+      display: flex;
+      justify-content: space-between;
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      font-size: 11px;
+      color: var(--em-text-muted);
+    }
+    .hardness-labels span.active { color: var(--em-accent-1); font-weight: 700; }
+
+    /* Temp Picker entfernt – Slider wird genutzt */
+
+    /* ── Time Preview ── */
+    .time-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: rgba(245,158,11,0.05);
+      border: 1px solid rgba(245,158,11,0.12);
+      border-radius: 14px;
+      margin-top: 4px;
+    }
+    .preview-time {
+      font-size: 30px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .preview-label { font-size: 12px; color: var(--em-text-muted); }
+
+    /* ── Buttons ── */
+    .add-egg-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px dashed rgba(245,158,11,0.30);
+      background: transparent;
+      color: var(--em-accent-1);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .add-egg-btn:hover { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.5); }
+    .add-egg-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .start-btn {
+      width: 100%;
+      padding: 18px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      color: #1a1208;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 20px rgba(245,158,11,0.30);
+      letter-spacing: 0.02em;
+    }
+    .start-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(245,158,11,0.45); }
+    .start-btn:active { transform: translateY(0); }
+
+    .btn-row { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Timer Screen ── */
+    #timer-screen { display: none; }
+    #timer-screen.active { display: block; }
+    #config-screen.hidden { display: none; }
+
+    .timer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 0 16px;
+    }
+    .timer-title {
+      font-size: 22px; font-weight: 800;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .back-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--em-card-bg);
+      border: 1px solid var(--em-border);
+      border-radius: 10px;
+      padding: 8px 14px;
+      color: var(--em-text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .back-btn:hover { color: var(--em-text); border-color: rgba(245,158,11,0.3); }
+
+    .timers-grid { display: flex; flex-direction: column; gap: 14px; }
+
+    .timer-card {
+      background: var(--em-card-bg);
+      border: 1px solid var(--em-border);
+      border-radius: 20px;
+      padding: 22px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      transition: border-color 0.4s, box-shadow 0.4s, background 0.4s;
+    }
+    .timer-card.done {
+      border-color: rgba(34,197,94,0.35);
+      background: rgba(34,197,94,0.05);
+      box-shadow: 0 0 30px rgba(34,197,94,0.10);
+      animation: celebrate 0.5s ease;
+    }
+
+    @keyframes celebrate {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.025); }
+      60%  { transform: scale(0.98); }
+      100% { transform: scale(1); }
+    }
+
+    /* SVG Ring */
+    .ring-wrap { position: relative; width: 96px; height: 96px; flex-shrink: 0; }
+    .timer-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring-bg   { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 7; }
+    .ring-prog { fill: none; stroke: url(#ring-grad); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 0.9s linear; }
+
+    .ring-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .ring-time-text {
+      font-size: 17px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .ring-done-icon { font-size: 30px; }
+
+    .timer-info { flex: 1; min-width: 0; }
+    .timer-egg-name { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+    .timer-egg-desc { font-size: 12px; color: var(--em-text-muted); margin-bottom: 12px; }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(245,158,11,0.10);
+      color: var(--em-accent-1);
+      border: 1px solid rgba(245,158,11,0.20);
+    }
+    .status-pill.done {
+      background: rgba(34,197,94,0.10);
+      color: #22c55e;
+      border-color: rgba(34,197,94,0.25);
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .status-dot.pulse { animation: blink 1s infinite; }
+
+    .timer-actions { display: flex; gap: 12px; margin-top: 20px; }
+    .btn-sec {
+      flex: 1; padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--em-border);
+      background: var(--em-card-bg);
+      color: var(--em-text-muted);
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-sec:hover { border-color: rgba(245,158,11,0.3); color: var(--em-text); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(5px);
+      z-index: 500;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--em-bg-2);
+      border: 1px solid rgba(245,158,11,0.15);
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%; max-width: 320px;
+    }
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+    .modal-note { font-size: 12px; color: var(--em-text-muted); margin-bottom: 16px; }
+    .modal-input {
+      width: 100%; padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--em-border);
+      background: rgba(255,255,255,0.04);
+      color: var(--em-text); font-size: 16px;
+      outline: none; margin-bottom: 8px;
+      transition: border-color 0.2s;
+    }
+    .modal-input:focus { border-color: var(--em-accent-1); }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-cancel {
+      padding: 12px; border-radius: 10px;
+      border: 1px solid var(--em-border);
+      background: transparent; color: var(--em-text-muted);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-ok {
+      padding: 12px; border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      color: #1a1208; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+
+    /* ── Toast ── */
+    #toasts {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 900;
+      display: flex; flex-direction: column; gap: 8px; align-items: center;
+      pointer-events: none;
+    }
+    .toast {
+      background: rgba(26,18,8,0.95);
+      border: 1px solid var(--em-border);
+      border-radius: 12px;
+      padding: 11px 20px;
+      font-size: 14px; font-weight: 500;
+      backdrop-filter: blur(20px);
+      pointer-events: all;
+      animation: toast-in 0.25s ease;
+      white-space: nowrap;
+    }
+    .toast-success { border-color: rgba(34,197,94,0.4); color: #22c55e; }
+    .toast-error   { border-color: rgba(239,68,68,0.4); color: #ef4444; }
+    .toast-info    { color: var(--em-text); }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Hidden SVG gradient -->
+<svg width="0" height="0" style="position:absolute;pointer-events:none">
+  <defs>
+    <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="app">
+
+  <!-- ════ CONFIG SCREEN ════ -->
+  <div id="config-screen">
+    <div class="header">
+      <div class="header-title">🥚 Eiermeister</div>
+      <div class="altitude-badge" id="alt-badge" onclick="openModal()">
+        <div class="alt-dot loading" id="alt-dot"></div>
+        <span id="alt-txt">wird ermittelt…</span>
+      </div>
+    </div>
+
+    <div class="eggs-container" id="eggs-container"></div>
+
+    <div class="btn-row">
+      <button class="add-egg-btn" id="add-btn" onclick="addEgg()">＋ Weiteres Ei</button>
+      <button class="start-btn" onclick="startTimers()">▶ Kochen starten</button>
+    </div>
+  </div>
+
+  <!-- ════ TIMER SCREEN ════ -->
+  <div id="timer-screen">
+    <div class="timer-header">
+      <div class="timer-title">🥚 Eiermeister</div>
+      <button class="back-btn" onclick="stopTimers()">✕ Abbrechen</button>
+    </div>
+    <div class="timers-grid" id="timers-grid"></div>
+    <div class="timer-actions">
+      <button class="btn-sec" onclick="stopTimers()">← Neue Kochung</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Altitude Modal -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <div class="modal-title">📍 Höhe über Meer</div>
+    <input class="modal-input" id="modal-input" type="number"
+           min="0" max="5000" placeholder="z.B. 340">
+    <p class="modal-note">Meter ü. NN — beeinflusst den Siedepunkt des Wassers</p>
+    <div class="modal-row">
+      <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
+      <button class="btn-ok"     onclick="saveAlt()">Übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════
+// PHYSICS
+// ═══════════════════════════════════════
+const EGG_MASS   = { S:43, M:53, L:63, XL:73 };
+// Starttemperatur direkt in °C (kein Lookup mehr nötig)
+
+function boilingPoint(altM) { return 100 - altM / 294; }
+
+function targetTemp(h) {
+  // h: 0=weich, 0.5=mittel, 1=hart
+  if (h <= 0.5) return 62 + (71 - 62) * (h * 2);
+  return 71 + (82 - 71) * ((h - 0.5) * 2);
+}
+
+function cookSec(size, hardness, tempC, altM) {
+  const M   = EGG_MASS[size];
+  const c   = 3.7;     // J/(g·K)
+  const rho = 1.032;   // g/cm³
+  const K   = 5.4e-3;  // W/(cm·K)
+  const Tw  = boilingPoint(altM);
+  const T0  = tempC;
+  const Ty  = targetTemp(hardness);
+  const factor = Math.pow(M, 2/3) * c * Math.pow(rho, 1/3) /
+                 (Math.PI**2 * K * Math.pow(4*Math.PI/3, 2/3));
+  return Math.max(60, factor * Math.log(0.76 * (Tw - T0) / (Tw - Ty)));
+}
+
+function fmt(sec) {
+  const s = Math.max(0, Math.ceil(sec));
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+function hardLabel(h) {
+  if (h < 0.25) return 'weich';
+  if (h < 0.75) return 'mittel';
+  return 'hart';
+}
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let altitude = 100;
+let eggs     = [mkEgg(1)];
+let timers   = [];
+let ticker   = null;
+
+function mkEgg(id) { return { id, size:'L', hardness:0.5, tempC:5 }; }
+
+// ═══════════════════════════════════════
+// GPS
+// ═══════════════════════════════════════
+function fetchGPS() {
+  if (!navigator.geolocation) { setAlt(altitude, false); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+      // coords.altitude ist auf den meisten Geräten null →
+      // Höhe per Open-Meteo Elevation API aus Lat/Lon ermitteln
+      fetch(`https://api.open-meteo.com/v1/elevation?latitude=${latitude}&longitude=${longitude}`)
+        .then(r => r.json())
+        .then(data => {
+          const elev = data?.elevation?.[0];
+          if (elev != null && !isNaN(elev)) {
+            setAlt(Math.round(elev), true);
+          } else {
+            setAlt(altitude, false);
+            toast('Höhe konnte nicht ermittelt werden — bitte manuell eintragen', 'info');
+          }
+        })
+        .catch(() => {
+          setAlt(altitude, false);
+          toast('Höhe-API nicht erreichbar — bitte manuell eintragen', 'info');
+        });
+    },
+    () => {
+      setAlt(altitude, false);
+      toast('Standort nicht verfügbar — Höhe bitte manuell eintragen', 'info');
+    },
+    { enableHighAccuracy: false, timeout: 8000 }
+  );
+}
+
+function setAlt(m, auto) {
+  altitude = m;
+  document.getElementById('alt-dot').classList.remove('loading');
+  document.getElementById('alt-txt').textContent = `${m} m${auto ? ' (GPS)' : ''}`;
+  refreshPreviews();
+}
+
+// ═══════════════════════════════════════
+// RENDER CONFIG
+// ═══════════════════════════════════════
+function renderEggs() {
+  const c = document.getElementById('eggs-container');
+  c.innerHTML = '';
+  eggs.forEach(e => c.appendChild(buildCard(e)));
+  document.getElementById('add-btn').disabled = eggs.length >= 4;
+}
+
+function buildCard(egg) {
+  const sec = cookSec(egg.size, egg.hardness, egg.tempC, altitude);
+  const canRemove = eggs.length > 1;
+  const d = document.createElement('div');
+  d.className = 'egg-card';
+  d.id = `ecard-${egg.id}`;
+  d.innerHTML = `
+    <div class="egg-card-header">
+      <div class="egg-card-title">🥚 Ei ${egg.id}</div>
+      ${canRemove ? `<button class="remove-btn" onclick="removeEgg(${egg.id})">✕</button>` : ''}
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Größe</div>
+      <div class="size-picker">
+        ${['S','M','L','XL'].map(s=>`
+          <div class="size-option">
+            <input type="radio" name="sz${egg.id}" id="sz${egg.id}${s}" value="${s}"
+              ${egg.size===s?'checked':''}
+              onchange="upd(${egg.id},'size','${s}')">
+            <label for="sz${egg.id}${s}">${s}</label>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">Härte</div>
+      <div class="hardness-wrap">
+        <input type="range" class="hardness-slider"
+          id="hs${egg.id}" min="0" max="1" step="0.01" value="${egg.hardness}"
+          style="--val:${egg.hardness}"
+          oninput="onSlider(${egg.id},this)">
+        <div class="hardness-labels">
+          <span id="hl-weich-${egg.id}"  class="${egg.hardness<0.25?'active':''}">weich</span>
+          <span id="hl-mittel-${egg.id}" class="${egg.hardness>=0.25&&egg.hardness<0.75?'active':''}">mittel</span>
+          <span id="hl-hart-${egg.id}"   class="${egg.hardness>=0.75?'active':''}">hart</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Starttemperatur</span>
+        <span id="tlbl-${egg.id}" style="font-size:13px;font-weight:700;color:var(--em-accent-1)">
+          ${egg.tempC <= 10 ? '🧊' : '🌡️'} ${egg.tempC} °C
+        </span>
+      </div>
+      <div class="hardness-wrap">
+        <input type="range" class="hardness-slider"
+          id="ts${egg.id}" min="1" max="30" step="1" value="${egg.tempC}"
+          style="--val:${((egg.tempC - 1) / 29).toFixed(3)}"
+          oninput="onTempSlider(${egg.id},this)">
+        <div class="hardness-labels">
+          <span>1 °C</span>
+          <span style="color:var(--em-text-muted)">▲ 10 °C Kühlschrank &nbsp;&nbsp; 20 °C Zimmer ▲</span>
+          <span>30 °C</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="time-preview" id="prev-${egg.id}">
+      <div>
+        <div class="preview-time">${fmt(sec)}</div>
+        <div class="preview-label">geschätzte Kochzeit</div>
+      </div>
+    </div>
+  `;
+  return d;
+}
+
+function onSlider(id, el) {
+  el.style.setProperty('--val', el.value);
+  upd(id, 'hardness', parseFloat(el.value));
+}
+
+function onTempSlider(id, el) {
+  const t = parseInt(el.value, 10);
+  // --val für Farbverlauf: normalisiert auf 0–1
+  el.style.setProperty('--val', ((t - 1) / 29).toFixed(3));
+  // Live-Label aktualisieren
+  const lbl = document.getElementById(`tlbl-${id}`);
+  if (lbl) lbl.textContent = `${t <= 10 ? '🧊' : '🌡️'} ${t} °C`;
+  upd(id, 'tempC', t);
+}
+
+function upd(id, field, val) {
+  const egg = eggs.find(e => e.id === id);
+  if (!egg) return;
+  egg[field] = val;
+  if (field === 'hardness') {
+    ['weich','mittel','hart'].forEach(l => {
+      document.getElementById(`hl-${l}-${id}`)?.classList.remove('active');
+    });
+    document.getElementById(`hl-${hardLabel(val)}-${id}`)?.classList.add('active');
+  }
+  refreshPreview(id);
+}
+
+function refreshPreview(id) {
+  const egg = eggs.find(e => e.id === id);
+  if (!egg) return;
+  const el = document.getElementById(`prev-${id}`);
+  if (el) el.querySelector('.preview-time').textContent =
+    fmt(cookSec(egg.size, egg.hardness, egg.tempC, altitude));
+}
+
+function refreshPreviews() { eggs.forEach(e => refreshPreview(e.id)); }
+
+function addEgg() {
+  if (eggs.length >= 4) return;
+  eggs.push(mkEgg(Math.max(...eggs.map(e=>e.id)) + 1));
+  renderEggs();
+}
+
+function removeEgg(id) {
+  eggs = eggs.filter(e => e.id !== id);
+  renderEggs();
+}
+
+// ═══════════════════════════════════════
+// TIMER
+// ═══════════════════════════════════════
+function startTimers() {
+  if ('Notification' in window && Notification.permission === 'default')
+    Notification.requestPermission();
+
+  timers = eggs.map(egg => ({
+    egg: {...egg},
+    total: cookSec(egg.size, egg.hardness, egg.tempC, altitude),
+    started: Date.now(),
+    done: false
+  }));
+
+  buildTimerCards();
+  document.getElementById('config-screen').classList.add('hidden');
+  document.getElementById('timer-screen').classList.add('active');
+
+  ticker = setInterval(tick, 250);
+}
+
+const CIRC = 2 * Math.PI * 40; // r=40 → circumference ≈ 251.3
+
+function buildTimerCards() {
+  const grid = document.getElementById('timers-grid');
+  grid.innerHTML = '';
+  timers.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'timer-card';
+    card.id = `tc-${i}`;
+    card.innerHTML = `
+      <div class="ring-wrap">
+        <svg class="timer-ring" viewBox="0 0 100 100">
+          <circle class="ring-bg"   cx="50" cy="50" r="40"/>
+          <circle class="ring-prog" cx="50" cy="50" r="40"
+            stroke-dasharray="${CIRC.toFixed(2)}"
+            stroke-dashoffset="${CIRC.toFixed(2)}"
+            id="rp-${i}"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-time-text" id="rt-${i}">${fmt(t.total)}</div>
+        </div>
+      </div>
+      <div class="timer-info">
+        <div class="timer-egg-name">Ei ${t.egg.id}</div>
+        <div class="timer-egg-desc">
+          ${t.egg.size} · ${hardLabel(t.egg.hardness)} ·
+          ${t.egg.tempC <= 10 ? '🧊' : '🌡️'} ${t.egg.tempC} °C
+        </div>
+        <div class="status-pill" id="sp-${i}">
+          <div class="status-dot pulse"></div>kocht…
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function tick() {
+  let allDone = true;
+  timers.forEach((t, i) => {
+    if (t.done) return;
+    const elapsed  = (Date.now() - t.started) / 1000;
+    const remain   = Math.max(0, t.total - elapsed);
+    const progress = (t.total - remain) / t.total;
+
+    const rtEl  = document.getElementById(`rt-${i}`);
+    const rpEl  = document.getElementById(`rp-${i}`);
+    const spEl  = document.getElementById(`sp-${i}`);
+    const tcEl  = document.getElementById(`tc-${i}`);
+
+    if (rtEl) rtEl.textContent = fmt(remain);
+    if (rpEl) rpEl.style.strokeDashoffset = (CIRC * (1 - progress)).toFixed(2);
+
+    if (remain <= 0) {
+      t.done = true;
+      if (rtEl) rtEl.closest('.ring-center').innerHTML =
+        '<div class="ring-done-icon">✓</div>';
+      if (rpEl) rpEl.style.strokeDashoffset = '0';
+      if (spEl) {
+        spEl.classList.add('done');
+        spEl.innerHTML = '<div class="status-dot"></div>Fertig!';
+      }
+      if (tcEl) tcEl.classList.add('done');
+      onDone(t.egg, i);
+    } else {
+      allDone = false;
+    }
+  });
+  if (allDone) {
+    clearInterval(ticker);
+    toast('Alle Eier sind fertig! 🥚', 'success');
+  }
+}
+
+function onDone(egg) {
+  beep();
+  toast(`Ei ${egg.id} (${egg.size}, ${hardLabel(egg.hardness)}) ist fertig! 🥚`, 'success');
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('🥚 Eiermeister', {
+      body: `Ei ${egg.id} — ${egg.size}, ${hardLabel(egg.hardness)} — ist fertig!`
+    });
+  }
+}
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.22, 0.44].forEach(d => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880; o.type = 'sine';
+      g.gain.setValueAtTime(0.28, ctx.currentTime + d);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d + 0.18);
+      o.start(ctx.currentTime + d);
+      o.stop(ctx.currentTime + d + 0.22);
+    });
+  } catch(_) {}
+}
+
+function stopTimers() {
+  clearInterval(ticker); ticker = null; timers = [];
+  document.getElementById('timer-screen').classList.remove('active');
+  document.getElementById('config-screen').classList.remove('hidden');
+  document.getElementById('timers-grid').innerHTML = '';
+}
+
+// ═══════════════════════════════════════
+// ALTITUDE MODAL
+// ═══════════════════════════════════════
+function openModal() {
+  document.getElementById('modal-input').value = altitude;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+function saveAlt() {
+  const v = parseInt(document.getElementById('modal-input').value, 10);
+  if (!isNaN(v) && v >= 0 && v <= 5000) { setAlt(v, false); closeModal(); }
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function toast(msg, type='info') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => {
+    t.style.transition = 'opacity 0.3s';
+    t.style.opacity = '0';
+    setTimeout(() => t.remove(), 320);
+  }, 3800);
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+renderEggs();
+fetchGPS();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
