@@ -862,14 +862,20 @@ function tick() {
 }
 
 function onDone(egg, timerIdx) {
+  console.log('🎉 onDone aufgerufen für Ei', egg.id);
+  toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🔊`, 'success');
+
   ensureAudioCtx();
+  console.log('🔊 Starte Sound...');
   playBeepBurst();
-  toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🥚`, 'success');
+
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('🥚 Eiermeister', {
       body: `Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${egg.eggL}×${egg.eggB} mm — ist fertig!`
     });
   }
+
+  console.log('🔁 Starte fireTimer für Index', timerIdx);
   fireTimer(timerIdx);
 }
 
@@ -878,12 +884,20 @@ function fireTimer(timerIdx) {
   if (!t || t.firedAt) return;
   t.firedAt = Date.now();
   const startedAt = Date.now();
+
+  // Erste Wiederholung nach 2,5 Sekunden
   t.beepIntervalId = setInterval(() => {
     if (!timers[timerIdx] || Date.now() - startedAt >= FIRE_MAX_MS) {
       stopFiring(timerIdx);
       return;
     }
-    playBeepBurst();
+
+    // Auf iOS: nur Vibration in Callbacks, Audio ist nicht erlaubt
+    // Deshalb nur Vibration + Toast hier, Ton nur im initialen Event
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200, 100, 400]);
+    }
+    console.log('📳 Vibration wiederholt um', Math.round(Date.now() - startedAt) + 'ms');
   }, FIRE_REPEAT_MS);
 }
 
