@@ -901,19 +901,37 @@ function ensureAudioCtx() {
   if (!audioCtx) {
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) { audioCtx = null; }
+      console.log('✅ AudioContext erstellt');
+    } catch (e) {
+      console.error('❌ AudioContext konnte nicht erstellt werden:', e);
+      audioCtx = null;
+    }
   }
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    console.log('⏸️ AudioContext war suspended, resuming...');
+    audioCtx.resume();
+  }
+  console.log('🔌 AudioContext Status:', audioCtx?.state || 'nicht verfügbar');
 }
 
 function playBeepBurst() {
+  console.log('🔊 playBeepBurst aufgerufen', { audioCtx: !!audioCtx, audioState: audioCtx?.state });
+
   // Vibration (Mobile)
   if (navigator.vibrate) {
+    console.log('📳 Vibration gestartet');
     navigator.vibrate([200, 100, 200, 100, 400]);
   }
+
   // Beep (Browser) — drei kurze 880-Hz-Töne
-  if (audioCtx) {
+  if (!audioCtx) {
+    console.warn('⚠️ AudioContext nicht verfügbar');
+    return;
+  }
+
+  try {
     const now = audioCtx.currentTime;
+    console.log('🎵 Beep starten bei', now);
     for (let i = 0; i < 3; i++) {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -928,6 +946,8 @@ function playBeepBurst() {
       osc.start(start);
       osc.stop(start + 0.42);
     }
+  } catch (e) {
+    console.error('❌ Beep-Fehler:', e);
   }
 }
 
