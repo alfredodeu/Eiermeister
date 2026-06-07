@@ -436,6 +436,80 @@
       from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+
+    /* ── Methoden-Umschalter ── */
+    .method-toggle {
+      display: flex;
+      gap: 6px;
+      background: var(--em-card-bg);
+      border: 1px solid var(--em-border);
+      border-radius: 14px;
+      padding: 5px;
+      margin: 4px 0 14px;
+    }
+    .method-btn {
+      flex: 1;
+      padding: 11px;
+      border-radius: 10px;
+      border: none;
+      background: transparent;
+      color: var(--em-text-muted);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .method-btn.active {
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      color: #1a1208;
+      box-shadow: 0 4px 14px rgba(245,158,11,0.30);
+    }
+    .method-hint {
+      font-size: 12px;
+      color: var(--em-text-muted);
+      text-align: center;
+      margin: -8px 0 14px;
+      line-height: 1.45;
+      padding: 0 4px;
+    }
+
+    /* ── Kaltstart-Screen ── */
+    #kaltstart-screen { display: none; }
+    #kaltstart-screen.active { display: block; }
+    .ks-card {
+      background: var(--em-card-bg);
+      border: 1px solid var(--em-border);
+      border-radius: 20px;
+      padding: 28px 22px;
+      text-align: center;
+      margin-top: 8px;
+    }
+    .ks-emoji { font-size: 54px; line-height: 1; margin-bottom: 14px; }
+    .ks-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+    .ks-sub   { font-size: 13px; color: var(--em-text-muted); line-height: 1.5; margin-bottom: 22px; }
+    .ks-stopwatch {
+      font-size: 46px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .ks-stopwatch-label { font-size: 12px; color: var(--em-text-muted); margin-bottom: 24px; }
+    .ks-bubble-btn {
+      width: 100%;
+      padding: 20px;
+      border-radius: 16px;
+      border: none;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      color: #1a1208;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(245,158,11,0.30);
+    }
+    .ks-bubble-btn:active { transform: translateY(1px); }
   </style>
 </head>
 <body>
@@ -462,11 +536,20 @@
       </div>
     </div>
 
+    <div class="method-toggle">
+      <button class="method-btn active" id="mb-einlegen"  onclick="setMethod('einlegen')">🔥 Einlegen</button>
+      <button class="method-btn"        id="mb-kaltstart" onclick="setMethod('kaltstart')">❄️ Kaltstart</button>
+    </div>
+    <div class="method-hint" id="method-hint" style="display:none">
+      Ei ins kalte Wasser legen und gemeinsam aufkochen. Die App misst die Zeit, sobald große Blasen aufsteigen.
+    </div>
+
     <div class="eggs-container" id="eggs-container"></div>
 
     <div class="btn-row">
       <button class="add-egg-btn" id="add-btn" onclick="addEgg()">＋ Weiteres Ei</button>
-      <button class="start-btn" onclick="startTimers()">▶ Kochen starten</button>
+      <button class="start-btn" id="start-einlegen"  onclick="startTimers()">▶ Kochen starten</button>
+      <button class="start-btn" id="start-kaltstart" onclick="beginColdStart()" style="display:none">❄️ Ei ins kalte Wasser</button>
     </div>
   </div>
 
@@ -479,6 +562,22 @@
     <div class="timers-grid" id="timers-grid"></div>
     <div class="timer-actions">
       <button class="btn-sec" onclick="stopTimers()">← Neue Kochung</button>
+    </div>
+  </div>
+
+  <!-- ════ KALTSTART SCREEN ════ -->
+  <div id="kaltstart-screen">
+    <div class="timer-header">
+      <div class="timer-title">❄️ Kaltstart</div>
+      <button class="back-btn" onclick="abortColdStart()">✕ Abbrechen</button>
+    </div>
+    <div class="ks-card">
+      <div class="ks-emoji">🫧</div>
+      <div class="ks-title">Wasser heizt auf …</div>
+      <div class="ks-sub">Sobald im Topf <strong>große Blasen sprudeln</strong> (richtiges Kochen), drücke den Knopf.</div>
+      <div class="ks-stopwatch" id="ks-stopwatch">00:00</div>
+      <div class="ks-stopwatch-label">seit „Ei ins kalte Wasser"</div>
+      <button class="ks-bubble-btn" onclick="finishColdStart()">💨 Große Blasen steigen auf!</button>
     </div>
   </div>
 
@@ -534,6 +633,62 @@ function cookSec(Lmm, Bmm, hardness, tempC, altM) {
   return Math.max(60, factor * Math.log(0.76 * (Tw - T0) / (Tw - Ty)));
 }
 
+// ── Kaltstart-Physik ──
+// Radiale Wärmeleitung im Ei (Kugelmodell, explizite Finite-Differenzen) mit
+// zeitabhängiger Oberflächentemperatur. Liefert die Restzeit ab Kochbeginn,
+// verankert an cookSec() über das Verhältnis Kaltstart/Einlegen.
+const WATER_START_C = 20;   // Annahme: Leitungswasser-/Zimmertemperatur
+
+function simulateSeconds(egg, surfaceTempFn) {
+  const M     = eggMass(egg.eggL, egg.eggB);   // g
+  const rho   = 1.032;                          // g/cm³
+  const c     = 3.7;                            // J/(g·K)
+  const Kc    = 5.4e-3;                          // W/(cm·K)
+  const alpha = Kc / (rho * c);                 // cm²/s
+  const V     = M / rho;                         // cm³
+  const R     = Math.cbrt(3 * V / (4 * Math.PI)); // cm (volumengleiche Kugel)
+  const Ty    = targetTemp(egg.hardness);
+
+  const N  = 30;
+  const dr = R / (N - 1);
+  const dt = 0.25 * dr * dr / alpha;            // stabil (explizit)
+  let T = new Array(N).fill(egg.tempC);
+
+  let t = 0;
+  const maxT = 4000;                            // Sicherheitsgrenze (s)
+  while (t < maxT) {
+    const Tn = T.slice();
+    // Zentrum (r=0): symmetrische Näherung
+    Tn[0] = T[0] + dt * alpha * 6 * (T[1] - T[0]) / (dr * dr);
+    for (let i = 1; i < N - 1; i++) {
+      const d2 = (T[i + 1] - 2 * T[i] + T[i - 1]) / (dr * dr);
+      const d1 = (2 / (i * dr)) * (T[i + 1] - T[i - 1]) / (2 * dr);
+      Tn[i] = T[i] + dt * alpha * (d2 + d1);
+    }
+    Tn[N - 1] = surfaceTempFn(t + dt);          // Oberfläche = Wassertemperatur
+    T = Tn;
+    t += dt;
+    if (T[0] >= Ty) return t;                    // Zentrum hat Zieltemperatur
+  }
+  return maxT;
+}
+
+// Restzeit (s) ab dem Moment, in dem das Wasser kocht, für die Kaltstart-Methode.
+// rampSec = gemessene Aufheizdauer (von „kaltes Wasser" bis „große Blasen").
+function coldStartRemaining(egg, rampSec) {
+  const Tw = boilingPoint(altitude);
+  // Referenz: gleiche Numerik, aber konstant kochendes Wasser (Einlegen)
+  const tBoilSim = simulateSeconds(egg, () => Tw);
+  // Kaltstart: Oberfläche steigt linear WATER_START_C → Tw über rampSec, dann konstant
+  const rampFn = (tt) => tt >= rampSec ? Tw : WATER_START_C + (Tw - WATER_START_C) * (tt / rampSec);
+  const tColdTotalSim = simulateSeconds(egg, rampFn);
+  const remainingSim = tColdTotalSim - rampSec;
+  if (remainingSim <= 0) return 0;              // Ei schon fertig bei Kochbeginn
+  // An die geprüfte Formel koppeln (Verhältnis), damit die Absolutzeit stimmt
+  const ref = cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude);
+  return ref * (remainingSim / tBoilSim);
+}
+
 function fmt(sec) {
   const s = Math.max(0, Math.ceil(sec));
   return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
@@ -553,6 +708,9 @@ let eggs     = [mkEgg(1)];
 let timers   = [];
 let ticker   = null;
 let wakeLock = null;
+let method   = 'einlegen';      // 'einlegen' | 'kaltstart'
+let coldStartAt     = null;     // Zeitstempel „Ei ins kalte Wasser"
+let stopwatchTicker = null;
 const FIRE_REPEAT_MS = 2500;  // Ton alle 2,5 Sekunden
 const FIRE_MAX_MS    = 60000;  // Insgesamt 60 Sekunden aktiv
 
@@ -766,23 +924,38 @@ function removeEgg(id) {
 // ═══════════════════════════════════════
 // TIMER
 // ═══════════════════════════════════════
+// ── Wake Lock: Bildschirm bleibt an ──
+function requestWakeLock() {
+  if ('wakeLock' in navigator && !wakeLock) {
+    navigator.wakeLock.request('screen').then(lock => {
+      wakeLock = lock;
+      lock.addEventListener('release', () => { wakeLock = null; });
+    }).catch(() => { /* nicht verfügbar — läuft trotzdem weiter */ });
+  }
+}
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().then(() => { wakeLock = null; }).catch(() => {});
+  }
+}
+
+// ── Methoden-Umschalter ──
+function setMethod(m) {
+  method = m;
+  document.getElementById('mb-einlegen').classList.toggle('active', m === 'einlegen');
+  document.getElementById('mb-kaltstart').classList.toggle('active', m === 'kaltstart');
+  document.getElementById('method-hint').style.display      = m === 'kaltstart' ? 'block' : 'none';
+  document.getElementById('start-einlegen').style.display   = m === 'einlegen'  ? 'flex'  : 'none';
+  document.getElementById('start-kaltstart').style.display  = m === 'kaltstart' ? 'flex'  : 'none';
+}
+
+// ── Einlege-Methode (unverändert): Ei ins kochende Wasser ──
 function startTimers() {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
 
   ensureAudioCtx();
-
-  // Wake Lock: Bildschirm bleibt an während Timer laufen
-  if ('wakeLock' in navigator) {
-    navigator.wakeLock.request('screen').then(lock => {
-      wakeLock = lock;
-      lock.addEventListener('release', () => {
-        wakeLock = null;
-      });
-    }).catch(err => {
-      // Wake Lock nicht verfügbar — Timer laufen trotzdem weiter
-    });
-  }
+  requestWakeLock();
 
   timers = eggs.map(egg => ({
     egg: {...egg},
@@ -793,10 +966,65 @@ function startTimers() {
     beepIntervalId: null
   }));
 
+  enterTimerScreen();
+}
+
+// ── Kaltstart-Methode: kaltes Wasser, gemeinsam aufkochen ──
+function beginColdStart() {
+  if ('Notification' in window && Notification.permission === 'default')
+    Notification.requestPermission();
+
+  ensureAudioCtx();      // Audio per Tipp freischalten (iOS)
+  requestWakeLock();
+
+  coldStartAt = Date.now();
+  document.getElementById('config-screen').classList.add('hidden');
+  document.getElementById('kaltstart-screen').classList.add('active');
+
+  updateStopwatch();
+  stopwatchTicker = setInterval(updateStopwatch, 250);
+}
+
+function updateStopwatch() {
+  const el = document.getElementById('ks-stopwatch');
+  if (el && coldStartAt) el.textContent = fmt((Date.now() - coldStartAt) / 1000);
+}
+
+function finishColdStart() {
+  const rampSec = (Date.now() - coldStartAt) / 1000;
+  clearInterval(stopwatchTicker); stopwatchTicker = null;
+
+  timers = eggs.map(egg => {
+    let rem = coldStartRemaining(egg, rampSec);
+    if (rem < 5) rem = 5;   // mind. kurz — „praktisch sofort fertig"
+    return {
+      egg: {...egg},
+      total: rem,
+      started: Date.now(),
+      done: false,
+      firedAt: null,
+      beepIntervalId: null
+    };
+  });
+
+  document.getElementById('kaltstart-screen').classList.remove('active');
+  enterTimerScreen();
+}
+
+function abortColdStart() {
+  clearInterval(stopwatchTicker); stopwatchTicker = null;
+  coldStartAt = null;
+  releaseWakeLock();
+  document.getElementById('kaltstart-screen').classList.remove('active');
+  document.getElementById('config-screen').classList.remove('hidden');
+}
+
+// ── Gemeinsamer Übergang in den Timer-Screen (beide Methoden) ──
+function enterTimerScreen() {
   buildTimerCards();
   document.getElementById('config-screen').classList.add('hidden');
+  document.getElementById('kaltstart-screen').classList.remove('active');
   document.getElementById('timer-screen').classList.add('active');
-
   ticker = setInterval(tick, 250);
 }
 
@@ -956,12 +1184,7 @@ function stopTimers() {
   timers.forEach((t, i) => stopFiring(i));
   timers = [];
 
-  // Wake Lock freigeben
-  if (wakeLock) {
-    wakeLock.release().then(() => {
-      wakeLock = null;
-    }).catch(err => {});
-  }
+  releaseWakeLock();
 
   document.getElementById('timer-screen').classList.remove('active');
   document.getElementById('config-screen').classList.remove('hidden');
@@ -1001,6 +1224,7 @@ function toast(msg, type='info') {
 // INIT
 // ═══════════════════════════════════════
 renderEggs();
+setMethod('einlegen');
 fetchGPS();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
