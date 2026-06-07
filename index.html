@@ -917,7 +917,6 @@ function fireTimer(timerIdx) {
         lastVibrateAt = Date.now();
         const vibeCount = Math.round(elapsed / FIRE_REPEAT_MS);
         console.log('📳 Vibration #' + vibeCount + ' um ' + Math.round(elapsed) + 'ms');
-        toast(`Ei noch aktiv! 📳 (${Math.round(elapsed / 1000)}s)`, 'info');
       }
     }
   }, 500);
