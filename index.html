@@ -552,6 +552,8 @@ let altitude = 100;
 let eggs     = [mkEgg(1)];
 let timers   = [];
 let ticker   = null;
+const FIRE_REPEAT_MS = 2500;
+const FIRE_MAX_MS    = 60000;
 
 function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:5 }; }
 
@@ -767,11 +769,15 @@ function startTimers() {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
 
+  ensureAudioCtx();
+
   timers = eggs.map(egg => ({
     egg: {...egg},
     total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude),
     started: Date.now(),
-    done: false
+    done: false,
+    firedAt: null,
+    beepIntervalId: null
   }));
 
   buildTimerCards();
@@ -855,34 +861,80 @@ function tick() {
   }
 }
 
-function onDone(egg) {
-  beep();
+function onDone(egg, timerIdx) {
+  ensureAudioCtx();
+  playBeepBurst();
   toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🥚`, 'success');
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('🥚 Eiermeister', {
       body: `Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${egg.eggL}×${egg.eggB} mm — ist fertig!`
     });
   }
+  fireTimer(timerIdx);
 }
 
-function beep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.22, 0.44].forEach(d => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 880; o.type = 'sine';
-      g.gain.setValueAtTime(0.28, ctx.currentTime + d);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d + 0.18);
-      o.start(ctx.currentTime + d);
-      o.stop(ctx.currentTime + d + 0.22);
-    });
-  } catch(_) {}
+function fireTimer(timerIdx) {
+  const t = timers[timerIdx];
+  if (!t || t.firedAt) return;
+  t.firedAt = Date.now();
+  const startedAt = Date.now();
+  t.beepIntervalId = setInterval(() => {
+    if (!timers[timerIdx] || Date.now() - startedAt >= FIRE_MAX_MS) {
+      stopFiring(timerIdx);
+      return;
+    }
+    playBeepBurst();
+  }, FIRE_REPEAT_MS);
+}
+
+function stopFiring(timerIdx) {
+  const t = timers[timerIdx];
+  if (t && t.beepIntervalId) {
+    clearInterval(t.beepIntervalId);
+    t.beepIntervalId = null;
+  }
+}
+
+let audioCtx = null;
+
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playBeepBurst() {
+  // Vibration (Mobile)
+  if (navigator.vibrate) {
+    navigator.vibrate([200, 100, 200, 100, 400]);
+  }
+  // Beep (Browser) — drei kurze 880-Hz-Töne
+  if (audioCtx) {
+    const now = audioCtx.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      const start = now + i * 0.5;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.3, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+      osc.start(start);
+      osc.stop(start + 0.42);
+    }
+  }
 }
 
 function stopTimers() {
-  clearInterval(ticker); ticker = null; timers = [];
+  clearInterval(ticker); ticker = null;
+  timers.forEach((t, i) => stopFiring(i));
+  timers = [];
   document.getElementById('timer-screen').classList.remove('active');
   document.getElementById('config-screen').classList.remove('hidden');
   document.getElementById('timers-grid').innerHTML = '';
