@@ -552,8 +552,9 @@ let altitude = 100;
 let eggs     = [mkEgg(1)];
 let timers   = [];
 let ticker   = null;
-const FIRE_REPEAT_MS = 2500;
-const FIRE_MAX_MS    = 60000;
+const FIRE_REPEAT_MS = 2500;  // Vibration alle 2,5 Sekunden
+const FIRE_MAX_MS    = 60000;  // Insgesamt 60 Sekunden aktiv
+let lastVibrateTime = 0;       // Verhindert zu häufige Vibration
 
 function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:5 }; }
 
@@ -885,20 +886,25 @@ function fireTimer(timerIdx) {
   t.firedAt = Date.now();
   const startedAt = Date.now();
 
-  // Erste Wiederholung nach 2,5 Sekunden
+  console.log('🔥 fireTimer gestartet für Index', timerIdx);
+
+  // Interval schnell (500ms) - nur Vibration alle 2,5s triggern
   t.beepIntervalId = setInterval(() => {
-    if (!timers[timerIdx] || Date.now() - startedAt >= FIRE_MAX_MS) {
+    const elapsed = Date.now() - startedAt;
+    if (!timers[timerIdx] || elapsed >= FIRE_MAX_MS) {
+      console.log('⏹️ fireTimer gestoppt nach', elapsed + 'ms');
       stopFiring(timerIdx);
       return;
     }
 
-    // Auf iOS: nur Vibration in Callbacks, Audio ist nicht erlaubt
-    // Deshalb nur Vibration + Toast hier, Ton nur im initialen Event
-    if (navigator.vibrate) {
-      navigator.vibrate([200, 100, 200, 100, 400]);
+    // Vibration alle 2,5 Sekunden (mit Toleranz)
+    if (elapsed % FIRE_REPEAT_MS < 500) {  // Auslösen wenn in 2,5s-Fenster
+      if (navigator.vibrate) {
+        navigator.vibrate([200, 100, 200, 100, 400]);
+        console.log('📳 Vibration #' + Math.floor(elapsed / FIRE_REPEAT_MS) + ' um ' + Math.round(elapsed) + 'ms');
+      }
     }
-    console.log('📳 Vibration wiederholt um', Math.round(Date.now() - startedAt) + 'ms');
-  }, FIRE_REPEAT_MS);
+  }, 500);
 }
 
 function stopFiring(timerIdx) {
