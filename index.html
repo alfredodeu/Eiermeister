@@ -863,12 +863,10 @@ function tick() {
 }
 
 function onDone(egg, timerIdx) {
-  console.log('🎉 onDone aufgerufen für Ei', egg.id);
-  toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🔊`, 'success');
-
   ensureAudioCtx();
-  console.log('🔊 Starte Sound...');
   playBeepBurst();
+
+  toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🔊`, 'success');
 
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('🥚 Eiermeister', {
@@ -876,7 +874,6 @@ function onDone(egg, timerIdx) {
     });
   }
 
-  console.log('🔁 Starte fireTimer für Index', timerIdx);
   fireTimer(timerIdx);
 }
 
@@ -885,41 +882,14 @@ function fireTimer(timerIdx) {
   if (!t || t.firedAt) return;
   t.firedAt = Date.now();
   const startedAt = Date.now();
-  let lastVibrateAt = 0;
-
-  console.log('🔥 fireTimer gestartet für Index', timerIdx);
-
-  // Sofort erste Vibration
-  if (navigator.vibrate) {
-    navigator.vibrate([200, 100, 200, 100, 400]);
-    lastVibrateAt = Date.now();
-  }
-
-  // Interval schnell (500ms) - prüft ob 2,5s vergangen sind
   t.beepIntervalId = setInterval(() => {
-    if (!timers[timerIdx]) {
+    if (!timers[timerIdx]) return;
+    if (Date.now() - startedAt >= FIRE_MAX_MS) {
       stopFiring(timerIdx);
       return;
     }
-
-    const elapsed = Date.now() - startedAt;
-    if (elapsed >= FIRE_MAX_MS) {
-      console.log('⏹️ fireTimer gestoppt nach', elapsed + 'ms');
-      stopFiring(timerIdx);
-      return;
-    }
-
-    // Vibration alle 2,5 Sekunden
-    const timeSinceLastVibrate = Date.now() - lastVibrateAt;
-    if (timeSinceLastVibrate >= FIRE_REPEAT_MS - 100) {  // -100ms Toleranz
-      if (navigator.vibrate) {
-        navigator.vibrate([200, 100, 200, 100, 400]);
-        lastVibrateAt = Date.now();
-        const vibeCount = Math.round(elapsed / FIRE_REPEAT_MS);
-        console.log('📳 Vibration #' + vibeCount + ' um ' + Math.round(elapsed) + 'ms');
-      }
-    }
-  }, 500);
+    playBeepBurst();
+  }, FIRE_REPEAT_MS);
 }
 
 function stopFiring(timerIdx) {
@@ -936,37 +906,22 @@ function ensureAudioCtx() {
   if (!audioCtx) {
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      console.log('✅ AudioContext erstellt');
-    } catch (e) {
-      console.error('❌ AudioContext konnte nicht erstellt werden:', e);
-      audioCtx = null;
-    }
+    } catch (e) { audioCtx = null; }
   }
-  if (audioCtx && audioCtx.state === 'suspended') {
-    console.log('⏸️ AudioContext war suspended, resuming...');
-    audioCtx.resume();
-  }
-  console.log('🔌 AudioContext Status:', audioCtx?.state || 'nicht verfügbar');
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }
 
 function playBeepBurst() {
-  console.log('🔊 playBeepBurst aufgerufen', { audioCtx: !!audioCtx, audioState: audioCtx?.state });
-
   // Vibration (Mobile)
   if (navigator.vibrate) {
-    console.log('📳 Vibration gestartet');
     navigator.vibrate([200, 100, 200, 100, 400]);
   }
 
   // Beep (Browser) — drei kurze 880-Hz-Töne
-  if (!audioCtx) {
-    console.warn('⚠️ AudioContext nicht verfügbar');
-    return;
-  }
+  if (!audioCtx) return;
 
   try {
     const now = audioCtx.currentTime;
-    console.log('🎵 Beep starten bei', now);
     for (let i = 0; i < 3; i++) {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -981,9 +936,7 @@ function playBeepBurst() {
       osc.start(start);
       osc.stop(start + 0.42);
     }
-  } catch (e) {
-    console.error('❌ Beep-Fehler:', e);
-  }
+  } catch (e) {}
 }
 
 function stopTimers() {
