@@ -885,23 +885,39 @@ function fireTimer(timerIdx) {
   if (!t || t.firedAt) return;
   t.firedAt = Date.now();
   const startedAt = Date.now();
+  let lastVibrateAt = 0;
 
   console.log('🔥 fireTimer gestartet für Index', timerIdx);
 
-  // Interval schnell (500ms) - nur Vibration alle 2,5s triggern
+  // Sofort erste Vibration
+  if (navigator.vibrate) {
+    navigator.vibrate([200, 100, 200, 100, 400]);
+    lastVibrateAt = Date.now();
+  }
+
+  // Interval schnell (500ms) - prüft ob 2,5s vergangen sind
   t.beepIntervalId = setInterval(() => {
+    if (!timers[timerIdx]) {
+      stopFiring(timerIdx);
+      return;
+    }
+
     const elapsed = Date.now() - startedAt;
-    if (!timers[timerIdx] || elapsed >= FIRE_MAX_MS) {
+    if (elapsed >= FIRE_MAX_MS) {
       console.log('⏹️ fireTimer gestoppt nach', elapsed + 'ms');
       stopFiring(timerIdx);
       return;
     }
 
-    // Vibration alle 2,5 Sekunden (mit Toleranz)
-    if (elapsed % FIRE_REPEAT_MS < 500) {  // Auslösen wenn in 2,5s-Fenster
+    // Vibration alle 2,5 Sekunden
+    const timeSinceLastVibrate = Date.now() - lastVibrateAt;
+    if (timeSinceLastVibrate >= FIRE_REPEAT_MS - 100) {  // -100ms Toleranz
       if (navigator.vibrate) {
         navigator.vibrate([200, 100, 200, 100, 400]);
-        console.log('📳 Vibration #' + Math.floor(elapsed / FIRE_REPEAT_MS) + ' um ' + Math.round(elapsed) + 'ms');
+        lastVibrateAt = Date.now();
+        const vibeCount = Math.round(elapsed / FIRE_REPEAT_MS);
+        console.log('📳 Vibration #' + vibeCount + ' um ' + Math.round(elapsed) + 'ms');
+        toast(`Ei noch aktiv! 📳 (${Math.round(elapsed / 1000)}s)`, 'info');
       }
     }
   }, 500);
