@@ -552,9 +552,9 @@ let altitude = 100;
 let eggs     = [mkEgg(1)];
 let timers   = [];
 let ticker   = null;
-const FIRE_REPEAT_MS = 2500;  // Vibration alle 2,5 Sekunden
+let wakeLock = null;
+const FIRE_REPEAT_MS = 2500;  // Ton alle 2,5 Sekunden
 const FIRE_MAX_MS    = 60000;  // Insgesamt 60 Sekunden aktiv
-let lastVibrateTime = 0;       // Verhindert zu häufige Vibration
 
 function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:5 }; }
 
@@ -772,6 +772,18 @@ function startTimers() {
 
   ensureAudioCtx();
 
+  // Wake Lock: Bildschirm bleibt an während Timer laufen
+  if ('wakeLock' in navigator) {
+    navigator.wakeLock.request('screen').then(lock => {
+      wakeLock = lock;
+      lock.addEventListener('release', () => {
+        wakeLock = null;
+      });
+    }).catch(err => {
+      // Wake Lock nicht verfügbar — Timer laufen trotzdem weiter
+    });
+  }
+
   timers = eggs.map(egg => ({
     egg: {...egg},
     total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude),
@@ -943,6 +955,14 @@ function stopTimers() {
   clearInterval(ticker); ticker = null;
   timers.forEach((t, i) => stopFiring(i));
   timers = [];
+
+  // Wake Lock freigeben
+  if (wakeLock) {
+    wakeLock.release().then(() => {
+      wakeLock = null;
+    }).catch(err => {});
+  }
+
   document.getElementById('timer-screen').classList.remove('active');
   document.getElementById('config-screen').classList.remove('hidden');
   document.getElementById('timers-grid').innerHTML = '';
