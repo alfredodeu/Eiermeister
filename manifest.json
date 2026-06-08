@@ -2,7 +2,7 @@
   "name": "Eiermeister",
   "short_name": "Eiermeister",
   "description": "Perfekte Eier kochen — mit Physik",
-  "start_url": "/Eiermeister/",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#1a1208",
   "theme_color": "#1a1208",

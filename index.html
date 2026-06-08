@@ -2,9 +2,14 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Eiermeister</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#1a1208">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -26,19 +31,38 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--em-bg-1);
       color: var(--em-text);
       min-height: 100dvh;
-      background-image:
-        radial-gradient(ellipse at 15% 15%, rgba(245,158,11,0.09) 0%, transparent 55%),
-        radial-gradient(ellipse at 85% 85%, rgba(249,115,22,0.07) 0%, transparent 55%);
+      position: relative;
+    }
+
+    /* Atmende Hintergrund-Aura */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse at 15% 15%, rgba(245,158,11,0.13) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 85%, rgba(249,115,22,0.10) 0%, transparent 55%);
+      animation: aura-breathe 7s ease-in-out infinite alternate;
+    }
+
+    @keyframes aura-breathe {
+      0%   { opacity: 0.65; transform: scale(1); }
+      100% { opacity: 1;    transform: scale(1.06); }
     }
 
     .app {
       max-width: 480px;
       margin: 0 auto;
-      padding: 0 16px 100px;
+      padding: 0 16px env(safe-area-inset-bottom, 100px);
+      padding-bottom: max(100px, env(safe-area-inset-bottom, 100px));
+      position: relative;
+      z-index: 1;
     }
 
     /* ── Header ── */
@@ -48,7 +72,6 @@
       justify-content: space-between;
       padding: 24px 0 16px;
     }
-
     .header-title {
       font-size: 26px;
       font-weight: 800;
@@ -58,7 +81,6 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-
     .altitude-badge {
       display: flex;
       align-items: center;
@@ -74,7 +96,6 @@
       user-select: none;
     }
     .altitude-badge:hover { background: var(--em-card-hover); color: var(--em-text); }
-
     .alt-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
@@ -82,7 +103,6 @@
       flex-shrink: 0;
     }
     .alt-dot.loading { animation: blink 1.2s ease-in-out infinite; }
-
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
     /* ── Egg Cards ── */
@@ -92,7 +112,7 @@
       background: var(--em-card-bg);
       border: 1px solid var(--em-border);
       border-radius: 20px;
-      padding: 20px;
+      padding: 18px 18px 18px 18px;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       transition: transform 0.2s, box-shadow 0.2s;
@@ -101,15 +121,13 @@
       transform: translateY(-2px);
       box-shadow: 0 8px 32px rgba(245,158,11,0.10);
     }
-
     .egg-card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
     }
     .egg-card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-
     .remove-btn {
       width: 28px; height: 28px;
       border-radius: 50%;
@@ -123,6 +141,34 @@
     }
     .remove-btn:hover { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: #ef4444; }
 
+    /* ── Zweispaltiges Card-Layout ── */
+    .egg-card-body {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .egg-controls { flex: 1; min-width: 0; }
+    .egg-preview-col {
+      width: 96px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    @media (max-width: 340px) {
+      .egg-card-body { flex-direction: column; }
+      .egg-preview-col { width: 100%; flex-direction: row; align-items: center; }
+    }
+
+    /* ── Visuelles Ei ── */
+    .egg-visual-wrap { width: 100%; display: flex; justify-content: center; }
+    .egg-svg {
+      width: 90px;
+      height: auto;
+      filter: drop-shadow(0 3px 10px rgba(245,158,11,0.18));
+    }
+
     /* ── Field Groups ── */
     .field-label {
       font-size: 11px;
@@ -132,25 +178,20 @@
       letter-spacing: 0.07em;
       margin-bottom: 8px;
     }
-    .field-group { margin-bottom: 16px; }
+    .field-group { margin-bottom: 14px; }
     .field-group:last-child { margin-bottom: 0; }
-
-    /* Size Picker entfernt – Länge/Breite-Slider wird genutzt */
-
-    .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
+    .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .mass-badge {
       display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12px; font-weight: 700;
-      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
       background: rgba(245,158,11,0.10);
       color: var(--em-accent-1);
       border: 1px solid rgba(245,158,11,0.20);
     }
 
     /* ── Hardness Slider ── */
-    .hardness-wrap { position: relative; padding-bottom: 22px; }
-
+    .hardness-wrap { position: relative; padding-bottom: 20px; }
     .hardness-slider {
       -webkit-appearance: none;
       appearance: none;
@@ -184,33 +225,31 @@
       box-shadow: 0 2px 10px rgba(245,158,11,0.55);
       border: 2px solid rgba(255,255,255,0.15);
     }
-
     .hardness-labels {
       display: flex;
       justify-content: space-between;
       position: absolute;
       bottom: 0; left: 0; right: 0;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--em-text-muted);
     }
     .hardness-labels span.active { color: var(--em-accent-1); font-weight: 700; }
 
-    /* Temp Picker entfernt – Slider wird genutzt */
-
-    /* ── Time Preview ── */
+    /* ── Time Preview (kompakt in rechter Spalte) ── */
     .time-preview {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      padding: 14px 16px;
+      gap: 2px;
+      padding: 9px 6px;
       background: rgba(245,158,11,0.05);
       border: 1px solid rgba(245,158,11,0.12);
-      border-radius: 14px;
-      margin-top: 4px;
+      border-radius: 12px;
+      width: 100%;
     }
     .preview-time {
-      font-size: 30px;
+      font-size: 20px;
       font-weight: 800;
       font-variant-numeric: tabular-nums;
       background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-3));
@@ -219,7 +258,7 @@
       background-clip: text;
       line-height: 1;
     }
-    .preview-label { font-size: 12px; color: var(--em-text-muted); }
+    .preview-label { font-size: 10px; color: var(--em-text-muted); }
 
     /* ── Buttons ── */
     .add-egg-btn {
@@ -231,6 +270,7 @@
       color: var(--em-accent-1);
       font-size: 14px;
       font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
       transition: all 0.2s;
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -247,6 +287,7 @@
       color: #1a1208;
       font-size: 17px;
       font-weight: 800;
+      font-family: inherit;
       cursor: pointer;
       transition: all 0.2s;
       box-shadow: 0 4px 20px rgba(245,158,11,0.30);
@@ -254,7 +295,6 @@
     }
     .start-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(245,158,11,0.45); }
     .start-btn:active { transform: translateY(0); }
-
     .btn-row { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
 
     /* ── Timer Screen ── */
@@ -279,6 +319,7 @@
       padding: 8px 14px;
       color: var(--em-text-muted);
       font-size: 13px;
+      font-family: inherit;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -304,7 +345,6 @@
       box-shadow: 0 0 30px rgba(34,197,94,0.10);
       animation: celebrate 0.5s ease;
     }
-
     @keyframes celebrate {
       0%   { transform: scale(1); }
       30%  { transform: scale(1.025); }
@@ -312,22 +352,16 @@
       100% { transform: scale(1); }
     }
 
-    /* SVG Ring */
     .ring-wrap { position: relative; width: 96px; height: 96px; flex-shrink: 0; }
     .timer-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
     .ring-bg   { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 7; }
     .ring-prog { fill: none; stroke: url(#ring-grad); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 0.9s linear; }
-
     .ring-center {
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
     }
-    .ring-time-text {
-      font-size: 17px; font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-    }
+    .ring-time-text { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
     .ring-done-icon { font-size: 30px; }
 
     .timer-info { flex: 1; min-width: 0; }
@@ -348,11 +382,7 @@
       color: #22c55e;
       border-color: rgba(34,197,94,0.25);
     }
-    .status-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: currentColor;
-    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .status-dot.pulse { animation: blink 1s infinite; }
 
     .timer-actions { display: flex; gap: 12px; margin-top: 20px; }
@@ -362,10 +392,23 @@
       border: 1px solid var(--em-border);
       background: var(--em-card-bg);
       color: var(--em-text-muted);
-      font-size: 14px; font-weight: 600;
+      font-size: 14px; font-weight: 600; font-family: inherit;
       cursor: pointer; transition: all 0.2s;
     }
     .btn-sec:hover { border-color: rgba(245,158,11,0.3); color: var(--em-text); }
+
+    /* ── iOS Hinweis ── */
+    .ios-hint {
+      font-size: 11px;
+      color: var(--em-text-muted);
+      text-align: center;
+      padding: 10px 14px;
+      margin-top: 14px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      border: 1px solid var(--em-border);
+      line-height: 1.55;
+    }
 
     /* ── Modal ── */
     .modal-overlay {
@@ -391,7 +434,7 @@
       border-radius: 10px;
       border: 1px solid var(--em-border);
       background: rgba(255,255,255,0.04);
-      color: var(--em-text); font-size: 16px;
+      color: var(--em-text); font-size: 16px; font-family: inherit;
       outline: none; margin-bottom: 8px;
       transition: border-color 0.2s;
     }
@@ -401,13 +444,13 @@
       padding: 12px; border-radius: 10px;
       border: 1px solid var(--em-border);
       background: transparent; color: var(--em-text-muted);
-      font-size: 14px; font-weight: 600; cursor: pointer;
+      font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer;
     }
     .btn-ok {
       padding: 12px; border-radius: 10px;
       border: none;
       background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
-      color: #1a1208; font-size: 14px; font-weight: 700; cursor: pointer;
+      color: #1a1208; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
     }
 
     /* ── Toast ── */
@@ -431,22 +474,35 @@
     .toast-success { border-color: rgba(34,197,94,0.4); color: #22c55e; }
     .toast-error   { border-color: rgba(239,68,68,0.4); color: #ef4444; }
     .toast-info    { color: var(--em-text); }
-
     @keyframes toast-in {
       from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Methoden-Umschalter ── */
+    /* ── Methoden-Umschalter mit Sliding-Indikator ── */
     .method-toggle {
+      position: relative;
       display: flex;
-      gap: 6px;
+      gap: 0;
       background: var(--em-card-bg);
       border: 1px solid var(--em-border);
       border-radius: 14px;
       padding: 5px;
       margin: 4px 0 14px;
     }
+    .toggle-slider {
+      position: absolute;
+      top: 5px; bottom: 5px;
+      left: 5px;
+      width: calc(50% - 8px);
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      box-shadow: 0 4px 14px rgba(245,158,11,0.30);
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .toggle-slider.right { transform: translateX(calc(100% + 6px)); }
     .method-btn {
       flex: 1;
       padding: 11px;
@@ -456,14 +512,13 @@
       color: var(--em-text-muted);
       font-size: 14px;
       font-weight: 700;
+      font-family: inherit;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: color 0.2s;
+      position: relative;
+      z-index: 1;
     }
-    .method-btn.active {
-      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
-      color: #1a1208;
-      box-shadow: 0 4px 14px rgba(245,158,11,0.30);
-    }
+    .method-btn.active { color: #1a1208; }
     .method-hint {
       font-size: 12px;
       color: var(--em-text-muted);
@@ -483,10 +538,12 @@
       padding: 28px 22px;
       text-align: center;
       margin-top: 8px;
+      position: relative;
+      overflow: hidden;
     }
-    .ks-emoji { font-size: 54px; line-height: 1; margin-bottom: 14px; }
-    .ks-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
-    .ks-sub   { font-size: 13px; color: var(--em-text-muted); line-height: 1.5; margin-bottom: 22px; }
+    .ks-emoji  { font-size: 54px; line-height: 1; margin-bottom: 14px; position: relative; z-index: 1; }
+    .ks-title  { font-size: 18px; font-weight: 800; margin-bottom: 8px; position: relative; z-index: 1; }
+    .ks-sub    { font-size: 13px; color: var(--em-text-muted); line-height: 1.5; margin-bottom: 22px; position: relative; z-index: 1; }
     .ks-stopwatch {
       font-size: 46px;
       font-weight: 800;
@@ -495,8 +552,9 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       line-height: 1;
       margin-bottom: 6px;
+      position: relative; z-index: 1;
     }
-    .ks-stopwatch-label { font-size: 12px; color: var(--em-text-muted); margin-bottom: 24px; }
+    .ks-stopwatch-label { font-size: 12px; color: var(--em-text-muted); margin-bottom: 24px; position: relative; z-index: 1; }
     .ks-bubble-btn {
       width: 100%;
       padding: 20px;
@@ -506,13 +564,31 @@
       color: #1a1208;
       font-size: 18px;
       font-weight: 800;
+      font-family: inherit;
       cursor: pointer;
       box-shadow: 0 4px 20px rgba(245,158,11,0.30);
+      position: relative; z-index: 1;
     }
     .ks-bubble-btn:active { transform: translateY(1px); }
+
+    /* ── CSS-Wasserblasen (Kaltstart) ── */
+    #ks-bubbles { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+    .ks-bubble {
+      position: absolute;
+      bottom: -24px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      animation: bubble-rise linear infinite;
+    }
+    @keyframes bubble-rise {
+      0%   { transform: translateY(0) translateX(0);   opacity: 0.8; }
+      50%  { transform: translateY(-45%) translateX(6px); opacity: 0.45; }
+      100% { transform: translateY(-105vh) translateX(-5px); opacity: 0; }
+    }
   </style>
 </head>
-<body>
+<body ontouchstart="">
 
 <!-- Hidden SVG gradient -->
 <svg width="0" height="0" style="position:absolute;pointer-events:none">
@@ -537,6 +613,7 @@
     </div>
 
     <div class="method-toggle">
+      <span class="toggle-slider" id="toggle-slider"></span>
       <button class="method-btn active" id="mb-einlegen"  onclick="setMethod('einlegen')">🔥 Einlegen</button>
       <button class="method-btn"        id="mb-kaltstart" onclick="setMethod('kaltstart')">❄️ Kaltstart</button>
     </div>
@@ -563,6 +640,9 @@
     <div class="timer-actions">
       <button class="btn-sec" onclick="stopTimers()">← Neue Kochung</button>
     </div>
+    <div class="ios-hint">
+      🔊 iPhone: Stummschalter seitlich deaktivieren, damit der Signalton ertönt. Bildschirm eingeschaltet lassen.
+    </div>
   </div>
 
   <!-- ════ KALTSTART SCREEN ════ -->
@@ -572,6 +652,7 @@
       <button class="back-btn" onclick="abortColdStart()">✕ Abbrechen</button>
     </div>
     <div class="ks-card">
+      <div id="ks-bubbles"></div>
       <div class="ks-emoji">🫧</div>
       <div class="ks-title">Wasser heizt auf …</div>
       <div class="ks-sub">Sobald im Topf <strong>große Blasen sprudeln</strong> (richtiges Kochen), drücke den Knopf.</div>
@@ -603,97 +684,65 @@
 // ═══════════════════════════════════════
 // PHYSICS
 // ═══════════════════════════════════════
-// Masse aus Ellipsoid-Formel: M = (4/3 × π × L/2 × (B/2)²) × ρ   [g]
 function eggMass(Lmm, Bmm) {
-  const a = Lmm / 2, b = Bmm / 2;          // Halbachsen in mm
-  const vol = (4/3) * Math.PI * a * b * b; // mm³
-  return vol * 1.032e-3;                   // g  (ρ = 1.032 g/cm³)
+  const a = Lmm / 2, b = Bmm / 2;
+  const vol = (4/3) * Math.PI * a * b * b;
+  return vol * 1.032e-3;
 }
-
-// Starttemperatur direkt in °C (kein Lookup mehr nötig)
-
 function boilingPoint(altM) { return 100 - altM / 294; }
-
 function targetTemp(h) {
-  // h: 0=weich, 0.5=mittel, 1=hart
   if (h <= 0.5) return 62 + (71 - 62) * (h * 2);
   return 71 + (82 - 71) * ((h - 0.5) * 2);
 }
-
 function cookSec(Lmm, Bmm, hardness, tempC, altM) {
   const M   = eggMass(Lmm, Bmm);
-  const c   = 3.7;     // J/(g·K)
-  const rho = 1.032;   // g/cm³
-  const K   = 5.4e-3;  // W/(cm·K)
+  const c   = 3.7, rho = 1.032, K = 5.4e-3;
   const Tw  = boilingPoint(altM);
-  const T0  = tempC;
   const Ty  = targetTemp(hardness);
   const factor = Math.pow(M, 2/3) * c * Math.pow(rho, 1/3) /
                  (Math.PI**2 * K * Math.pow(4*Math.PI/3, 2/3));
-  return Math.max(60, factor * Math.log(0.76 * (Tw - T0) / (Tw - Ty)));
+  return Math.max(60, factor * Math.log(0.76 * (Tw - tempC) / (Tw - Ty)));
 }
 
-// ── Kaltstart-Physik ──
-// Radiale Wärmeleitung im Ei (Kugelmodell, explizite Finite-Differenzen) mit
-// zeitabhängiger Oberflächentemperatur. Liefert die Restzeit ab Kochbeginn,
-// verankert an cookSec() über das Verhältnis Kaltstart/Einlegen.
-const WATER_START_C = 20;   // Annahme: Leitungswasser-/Zimmertemperatur
-
+const WATER_START_C = 20;
 function simulateSeconds(egg, surfaceTempFn) {
-  const M     = eggMass(egg.eggL, egg.eggB);   // g
-  const rho   = 1.032;                          // g/cm³
-  const c     = 3.7;                            // J/(g·K)
-  const Kc    = 5.4e-3;                          // W/(cm·K)
-  const alpha = Kc / (rho * c);                 // cm²/s
-  const V     = M / rho;                         // cm³
-  const R     = Math.cbrt(3 * V / (4 * Math.PI)); // cm (volumengleiche Kugel)
-  const Ty    = targetTemp(egg.hardness);
-
-  const N  = 30;
-  const dr = R / (N - 1);
-  const dt = 0.25 * dr * dr / alpha;            // stabil (explizit)
+  const M = eggMass(egg.eggL, egg.eggB);
+  const rho = 1.032, c = 3.7, Kc = 5.4e-3;
+  const alpha = Kc / (rho * c);
+  const R = Math.cbrt(3 * (M / rho) / (4 * Math.PI));
+  const Ty = targetTemp(egg.hardness);
+  const N = 30, dr = R / (N - 1), dt = 0.25 * dr * dr / alpha;
   let T = new Array(N).fill(egg.tempC);
-
   let t = 0;
-  const maxT = 4000;                            // Sicherheitsgrenze (s)
-  while (t < maxT) {
+  while (t < 4000) {
     const Tn = T.slice();
-    // Zentrum (r=0): symmetrische Näherung
     Tn[0] = T[0] + dt * alpha * 6 * (T[1] - T[0]) / (dr * dr);
     for (let i = 1; i < N - 1; i++) {
-      const d2 = (T[i + 1] - 2 * T[i] + T[i - 1]) / (dr * dr);
-      const d1 = (2 / (i * dr)) * (T[i + 1] - T[i - 1]) / (2 * dr);
-      Tn[i] = T[i] + dt * alpha * (d2 + d1);
+      Tn[i] = T[i] + dt * alpha * (
+        (T[i+1] - 2*T[i] + T[i-1]) / (dr*dr) +
+        (2 / (i*dr)) * (T[i+1] - T[i-1]) / (2*dr)
+      );
     }
-    Tn[N - 1] = surfaceTempFn(t + dt);          // Oberfläche = Wassertemperatur
-    T = Tn;
-    t += dt;
-    if (T[0] >= Ty) return t;                    // Zentrum hat Zieltemperatur
+    Tn[N - 1] = surfaceTempFn(t + dt);
+    T = Tn; t += dt;
+    if (T[0] >= Ty) return t;
   }
-  return maxT;
+  return 4000;
 }
-
-// Restzeit (s) ab dem Moment, in dem das Wasser kocht, für die Kaltstart-Methode.
-// rampSec = gemessene Aufheizdauer (von „kaltes Wasser" bis „große Blasen").
 function coldStartRemaining(egg, rampSec) {
   const Tw = boilingPoint(altitude);
-  // Referenz: gleiche Numerik, aber konstant kochendes Wasser (Einlegen)
   const tBoilSim = simulateSeconds(egg, () => Tw);
-  // Kaltstart: Oberfläche steigt linear WATER_START_C → Tw über rampSec, dann konstant
-  const rampFn = (tt) => tt >= rampSec ? Tw : WATER_START_C + (Tw - WATER_START_C) * (tt / rampSec);
+  const rampFn = tt => tt >= rampSec ? Tw : WATER_START_C + (Tw - WATER_START_C) * (tt / rampSec);
   const tColdTotalSim = simulateSeconds(egg, rampFn);
   const remainingSim = tColdTotalSim - rampSec;
-  if (remainingSim <= 0) return 0;              // Ei schon fertig bei Kochbeginn
-  // An die geprüfte Formel koppeln (Verhältnis), damit die Absolutzeit stimmt
-  const ref = cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude);
-  return ref * (remainingSim / tBoilSim);
+  if (remainingSim <= 0) return 0;
+  return cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude) * (remainingSim / tBoilSim);
 }
 
 function fmt(sec) {
   const s = Math.max(0, Math.ceil(sec));
   return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
-
 function hardLabel(h) {
   if (h < 0.25) return 'weich';
   if (h < 0.75) return 'mittel';
@@ -708,11 +757,11 @@ let eggs     = [mkEgg(1)];
 let timers   = [];
 let ticker   = null;
 let wakeLock = null;
-let method   = 'einlegen';      // 'einlegen' | 'kaltstart'
-let coldStartAt     = null;     // Zeitstempel „Ei ins kalte Wasser"
+let method   = 'einlegen';
+let coldStartAt     = null;
 let stopwatchTicker = null;
-const FIRE_REPEAT_MS = 2500;  // Ton alle 2,5 Sekunden
-const FIRE_MAX_MS    = 60000;  // Insgesamt 60 Sekunden aktiv
+const FIRE_REPEAT_MS = 2500;
+const FIRE_MAX_MS    = 60000;
 
 function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:5 }; }
 
@@ -723,38 +772,71 @@ function fetchGPS() {
   if (!navigator.geolocation) { setAlt(altitude, false); return; }
   navigator.geolocation.getCurrentPosition(
     pos => {
-      const { latitude, longitude } = pos.coords;
-      // coords.altitude ist auf den meisten Geräten null →
-      // Höhe per Open-Meteo Elevation API aus Lat/Lon ermitteln
-      fetch(`https://api.open-meteo.com/v1/elevation?latitude=${latitude}&longitude=${longitude}`)
+      fetch(`https://api.open-meteo.com/v1/elevation?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}`)
         .then(r => r.json())
         .then(data => {
           const elev = data?.elevation?.[0];
-          if (elev != null && !isNaN(elev)) {
-            setAlt(Math.round(elev), true);
-          } else {
-            setAlt(altitude, false);
-            toast('Höhe konnte nicht ermittelt werden — bitte manuell eintragen', 'info');
-          }
+          if (elev != null && !isNaN(elev)) setAlt(Math.round(elev), true);
+          else { setAlt(altitude, false); toast('Höhe konnte nicht ermittelt werden — bitte manuell eintragen', 'info'); }
         })
-        .catch(() => {
-          setAlt(altitude, false);
-          toast('Höhe-API nicht erreichbar — bitte manuell eintragen', 'info');
-        });
+        .catch(() => { setAlt(altitude, false); toast('Höhe-API nicht erreichbar — bitte manuell eintragen', 'info'); });
     },
-    () => {
-      setAlt(altitude, false);
-      toast('Standort nicht verfügbar — Höhe bitte manuell eintragen', 'info');
-    },
+    () => { setAlt(altitude, false); toast('Standort nicht verfügbar — Höhe bitte manuell eintragen', 'info'); },
     { enableHighAccuracy: false, timeout: 8000 }
   );
 }
-
 function setAlt(m, auto) {
   altitude = m;
   document.getElementById('alt-dot').classList.remove('loading');
   document.getElementById('alt-txt').textContent = `${m} m${auto ? ' (GPS)' : ''}`;
   refreshPreviews();
+}
+
+// ═══════════════════════════════════════
+// VISUELLES EI
+// ═══════════════════════════════════════
+function eggRx(eggB) { return 30 + ((eggB - 35) / 23) * 18; }  // 30–48
+function eggRy(eggL) { return 50 + ((eggL - 45) / 30) * 20; }  // 50–70
+
+function yolkColor(h) {
+  if (h < 0.25) return '#ff5520';   // flüssig, orange-rot
+  if (h < 0.75) return '#ffa920';   // dottergelb
+  return '#e8dfa0';                  // hell, kreidig
+}
+function glowColor(tempC) {
+  if (tempC <= 8)  return 'rgba(100,160,255,0.30)';  // Kühlschrank — blau
+  if (tempC >= 22) return 'rgba(255,110,20,0.22)';   // warm — orange
+  return 'rgba(245,158,11,0.07)';                     // neutral
+}
+
+function updateEggVisual(egg) {
+  const rx = eggRx(egg.eggB), ry = eggRy(egg.eggL);
+  const white = document.getElementById(`eg-white-${egg.id}`);
+  const glow  = document.getElementById(`eg-glow-${egg.id}`);
+  const yolk  = document.getElementById(`eg-yolk-${egg.id}`);
+  if (white) { white.setAttribute('rx', rx.toFixed(1)); white.setAttribute('ry', ry.toFixed(1)); }
+  if (glow)  { glow.setAttribute('rx', (rx+7).toFixed(1)); glow.setAttribute('ry', (ry+7).toFixed(1)); glow.setAttribute('fill', glowColor(egg.tempC)); }
+  if (yolk)  yolk.setAttribute('fill', yolkColor(egg.hardness));
+}
+
+// ═══════════════════════════════════════
+// KALTSTART-BLASEN
+// ═══════════════════════════════════════
+function spawnBubbles() {
+  const c = document.getElementById('ks-bubbles');
+  if (!c) return;
+  c.innerHTML = '';
+  const cfg = [
+    {s:6,l:8},{s:10,l:20},{s:14,l:32},{s:8,l:45},
+    {s:16,l:56},{s:9,l:67},{s:12,l:78},{s:7,l:88}
+  ];
+  cfg.forEach((b, i) => {
+    const el = document.createElement('div');
+    el.className = 'ks-bubble';
+    el.style.cssText = `width:${b.s}px;height:${b.s}px;left:${b.l}%;` +
+      `animation-duration:${3.2 + i*0.45}s;animation-delay:-${i*0.65}s`;
+    c.appendChild(el);
+  });
 }
 
 // ═══════════════════════════════════════
@@ -769,88 +851,107 @@ function renderEggs() {
 
 function buildCard(egg) {
   const sec = cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude);
-  const canRemove = eggs.length > 1;
+  const rx = eggRx(egg.eggB), ry = eggRy(egg.eggL);
   const d = document.createElement('div');
   d.className = 'egg-card';
   d.id = `ecard-${egg.id}`;
   d.innerHTML = `
     <div class="egg-card-header">
       <div class="egg-card-title">🥚 Ei ${egg.id}</div>
-      ${canRemove ? `<button class="remove-btn" onclick="removeEgg(${egg.id})">✕</button>` : ''}
+      ${eggs.length > 1 ? `<button class="remove-btn" onclick="removeEgg(${egg.id})">✕</button>` : ''}
     </div>
 
-    <div class="field-group">
-      <div class="field-label" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Ei-Größe (Lineal)</span>
-        <span class="mass-badge" id="mass-${egg.id}">~${Math.round(eggMass(egg.eggL,egg.eggB))} g</span>
-      </div>
-      <div class="dim-grid">
-        <div>
-          <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
-            <span>↔ Länge</span><span id="lblL-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggL} mm</span>
+    <div class="egg-card-body">
+      <div class="egg-controls">
+
+        <div class="field-group">
+          <div class="field-label" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Ei-Größe (Lineal)</span>
+            <span class="mass-badge" id="mass-${egg.id}">~${Math.round(eggMass(egg.eggL,egg.eggB))} g</span>
+          </div>
+          <div class="dim-grid">
+            <div>
+              <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
+                <span>↔ Länge</span><span id="lblL-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggL} mm</span>
+              </div>
+              <div class="hardness-wrap">
+                <input type="range" class="hardness-slider"
+                  id="slL-${egg.id}" min="45" max="75" step="1" value="${egg.eggL}"
+                  style="--val:${((egg.eggL-45)/30).toFixed(3)}"
+                  oninput="onDimSlider(${egg.id},'eggL',this,45,30)">
+                <div class="hardness-labels"><span>45</span><span>75 mm</span></div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
+                <span>↕ Breite</span><span id="lblB-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggB} mm</span>
+              </div>
+              <div class="hardness-wrap">
+                <input type="range" class="hardness-slider"
+                  id="slB-${egg.id}" min="35" max="58" step="1" value="${egg.eggB}"
+                  style="--val:${((egg.eggB-35)/23).toFixed(3)}"
+                  oninput="onDimSlider(${egg.id},'eggB',this,35,23)">
+                <div class="hardness-labels"><span>35</span><span>58 mm</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">Härte</div>
+          <div class="hardness-wrap">
+            <input type="range" class="hardness-slider"
+              id="hs${egg.id}" min="0" max="1" step="0.01" value="${egg.hardness}"
+              style="--val:${egg.hardness}"
+              oninput="onSlider(${egg.id},this)">
+            <div class="hardness-labels">
+              <span id="hl-weich-${egg.id}"  class="${egg.hardness<0.25?'active':''}">weich</span>
+              <span id="hl-mittel-${egg.id}" class="${egg.hardness>=0.25&&egg.hardness<0.75?'active':''}">mittel</span>
+              <span id="hl-hart-${egg.id}"   class="${egg.hardness>=0.75?'active':''}">hart</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Starttemperatur</span>
+            <span id="tlbl-${egg.id}" style="font-size:12px;font-weight:700;color:var(--em-accent-1)">
+              ${egg.tempC <= 10 ? '🧊' : '🌡️'} ${egg.tempC} °C
+            </span>
           </div>
           <div class="hardness-wrap">
             <input type="range" class="hardness-slider"
-              id="slL-${egg.id}" min="45" max="75" step="1" value="${egg.eggL}"
-              style="--val:${((egg.eggL-45)/30).toFixed(3)}"
-              oninput="onDimSlider(${egg.id},'eggL',this,45,30)">
-            <div class="hardness-labels"><span>45</span><span>75 mm</span></div>
+              id="ts${egg.id}" min="1" max="30" step="1" value="${egg.tempC}"
+              style="--val:${((egg.tempC - 1) / 29).toFixed(3)}"
+              oninput="onTempSlider(${egg.id},this)">
+            <div class="hardness-labels">
+              <span>1°C</span><span>30°C</span>
+            </div>
           </div>
         </div>
-        <div>
-          <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
-            <span>↕ Breite</span><span id="lblB-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggB} mm</span>
-          </div>
-          <div class="hardness-wrap">
-            <input type="range" class="hardness-slider"
-              id="slB-${egg.id}" min="35" max="58" step="1" value="${egg.eggB}"
-              style="--val:${((egg.eggB-35)/23).toFixed(3)}"
-              oninput="onDimSlider(${egg.id},'eggB',this,35,23)">
-            <div class="hardness-labels"><span>35</span><span>58 mm</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="field-group">
-      <div class="field-label">Härte</div>
-      <div class="hardness-wrap">
-        <input type="range" class="hardness-slider"
-          id="hs${egg.id}" min="0" max="1" step="0.01" value="${egg.hardness}"
-          style="--val:${egg.hardness}"
-          oninput="onSlider(${egg.id},this)">
-        <div class="hardness-labels">
-          <span id="hl-weich-${egg.id}"  class="${egg.hardness<0.25?'active':''}">weich</span>
-          <span id="hl-mittel-${egg.id}" class="${egg.hardness>=0.25&&egg.hardness<0.75?'active':''}">mittel</span>
-          <span id="hl-hart-${egg.id}"   class="${egg.hardness>=0.75?'active':''}">hart</span>
-        </div>
       </div>
-    </div>
 
-    <div class="field-group">
-      <div class="field-label" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Starttemperatur</span>
-        <span id="tlbl-${egg.id}" style="font-size:13px;font-weight:700;color:var(--em-accent-1)">
-          ${egg.tempC <= 10 ? '🧊' : '🌡️'} ${egg.tempC} °C
-        </span>
-      </div>
-      <div class="hardness-wrap">
-        <input type="range" class="hardness-slider"
-          id="ts${egg.id}" min="1" max="30" step="1" value="${egg.tempC}"
-          style="--val:${((egg.tempC - 1) / 29).toFixed(3)}"
-          oninput="onTempSlider(${egg.id},this)">
-        <div class="hardness-labels">
-          <span>1 °C</span>
-          <span style="color:var(--em-text-muted)">▲ 10 °C Kühlschrank &nbsp;&nbsp; 20 °C Zimmer ▲</span>
-          <span>30 °C</span>
+      <div class="egg-preview-col">
+        <div class="egg-visual-wrap">
+          <svg class="egg-svg" id="eg-svg-${egg.id}" viewBox="0 0 120 170" xmlns="http://www.w3.org/2000/svg">
+            <ellipse id="eg-glow-${egg.id}"
+              cx="60" cy="90"
+              rx="${(rx+7).toFixed(1)}" ry="${(ry+7).toFixed(1)}"
+              fill="${glowColor(egg.tempC)}"/>
+            <ellipse id="eg-white-${egg.id}"
+              cx="60" cy="90"
+              rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"
+              fill="rgba(255,255,250,0.92)"/>
+            <circle id="eg-yolk-${egg.id}"
+              cx="60" cy="98" r="19"
+              fill="${yolkColor(egg.hardness)}"/>
+          </svg>
         </div>
-      </div>
-    </div>
-
-    <div class="time-preview" id="prev-${egg.id}">
-      <div>
-        <div class="preview-time">${fmt(sec)}</div>
-        <div class="preview-label">geschätzte Kochzeit</div>
+        <div class="time-preview" id="prev-${egg.id}">
+          <div class="preview-time">${fmt(sec)}</div>
+          <div class="preview-label">Kochzeit</div>
+        </div>
       </div>
     </div>
   `;
@@ -861,27 +962,21 @@ function onSlider(id, el) {
   el.style.setProperty('--val', el.value);
   upd(id, 'hardness', parseFloat(el.value));
 }
-
 function onDimSlider(id, field, el, min, range) {
   const val = parseInt(el.value, 10);
   el.style.setProperty('--val', ((val - min) / range).toFixed(3));
-  // Label aktualisieren
   const lbl = document.getElementById(field === 'eggL' ? `lblL-${id}` : `lblB-${id}`);
   if (lbl) lbl.textContent = `${val} mm`;
   upd(id, field, val);
-  // Masse-Badge aktualisieren
   const egg = eggs.find(e => e.id === id);
   if (egg) {
     const badge = document.getElementById(`mass-${id}`);
     if (badge) badge.textContent = `~${Math.round(eggMass(egg.eggL, egg.eggB))} g`;
   }
 }
-
 function onTempSlider(id, el) {
   const t = parseInt(el.value, 10);
-  // --val für Farbverlauf: normalisiert auf 0–1
   el.style.setProperty('--val', ((t - 1) / 29).toFixed(3));
-  // Live-Label aktualisieren
   const lbl = document.getElementById(`tlbl-${id}`);
   if (lbl) lbl.textContent = `${t <= 10 ? '🧊' : '🌡️'} ${t} °C`;
   upd(id, 'tempC', t);
@@ -892,11 +987,10 @@ function upd(id, field, val) {
   if (!egg) return;
   egg[field] = val;
   if (field === 'hardness') {
-    ['weich','mittel','hart'].forEach(l => {
-      document.getElementById(`hl-${l}-${id}`)?.classList.remove('active');
-    });
+    ['weich','mittel','hart'].forEach(l => document.getElementById(`hl-${l}-${id}`)?.classList.remove('active'));
     document.getElementById(`hl-${hardLabel(val)}-${id}`)?.classList.add('active');
   }
+  updateEggVisual(egg);
   refreshPreview(id);
 }
 
@@ -907,7 +1001,6 @@ function refreshPreview(id) {
   if (el) el.querySelector('.preview-time').textContent =
     fmt(cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude));
 }
-
 function refreshPreviews() { eggs.forEach(e => refreshPreview(e.id)); }
 
 function addEgg() {
@@ -915,102 +1008,93 @@ function addEgg() {
   eggs.push(mkEgg(Math.max(...eggs.map(e=>e.id)) + 1));
   renderEggs();
 }
-
 function removeEgg(id) {
   eggs = eggs.filter(e => e.id !== id);
   renderEggs();
 }
 
 // ═══════════════════════════════════════
-// TIMER
+// WAKE LOCK & iOS VISIBILITY
 // ═══════════════════════════════════════
-// ── Wake Lock: Bildschirm bleibt an ──
 function requestWakeLock() {
   if ('wakeLock' in navigator && !wakeLock) {
     navigator.wakeLock.request('screen').then(lock => {
       wakeLock = lock;
       lock.addEventListener('release', () => { wakeLock = null; });
-    }).catch(() => { /* nicht verfügbar — läuft trotzdem weiter */ });
+    }).catch(() => {});
   }
 }
 function releaseWakeLock() {
-  if (wakeLock) {
-    wakeLock.release().then(() => { wakeLock = null; }).catch(() => {});
-  }
+  if (wakeLock) { wakeLock.release().then(() => { wakeLock = null; }).catch(() => {}); }
 }
 
-// ── Methoden-Umschalter ──
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    ensureAudioCtx();
+    if (timers.length > 0 && !wakeLock) requestWakeLock();
+  }
+});
+
+// ═══════════════════════════════════════
+// METHODEN-UMSCHALTER
+// ═══════════════════════════════════════
 function setMethod(m) {
   method = m;
   document.getElementById('mb-einlegen').classList.toggle('active', m === 'einlegen');
   document.getElementById('mb-kaltstart').classList.toggle('active', m === 'kaltstart');
-  document.getElementById('method-hint').style.display      = m === 'kaltstart' ? 'block' : 'none';
-  document.getElementById('start-einlegen').style.display   = m === 'einlegen'  ? 'flex'  : 'none';
-  document.getElementById('start-kaltstart').style.display  = m === 'kaltstart' ? 'flex'  : 'none';
+  document.getElementById('toggle-slider').classList.toggle('right', m === 'kaltstart');
+  document.getElementById('method-hint').style.display     = m === 'kaltstart' ? 'block' : 'none';
+  document.getElementById('start-einlegen').style.display  = m === 'einlegen'  ? 'flex'  : 'none';
+  document.getElementById('start-kaltstart').style.display = m === 'kaltstart' ? 'flex'  : 'none';
 }
 
-// ── Einlege-Methode (unverändert): Ei ins kochende Wasser ──
+// ═══════════════════════════════════════
+// TIMER — Einlegen
+// ═══════════════════════════════════════
 function startTimers() {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
-
   ensureAudioCtx();
   requestWakeLock();
-
   timers = eggs.map(egg => ({
     egg: {...egg},
     total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude),
     started: Date.now(),
-    done: false,
-    firedAt: null,
-    beepIntervalId: null
+    done: false, firedAt: null, beepIntervalId: null
   }));
-
   enterTimerScreen();
 }
 
-// ── Kaltstart-Methode: kaltes Wasser, gemeinsam aufkochen ──
+// ═══════════════════════════════════════
+// KALTSTART
+// ═══════════════════════════════════════
 function beginColdStart() {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
-
-  ensureAudioCtx();      // Audio per Tipp freischalten (iOS)
+  ensureAudioCtx();
   requestWakeLock();
-
   coldStartAt = Date.now();
   document.getElementById('config-screen').classList.add('hidden');
   document.getElementById('kaltstart-screen').classList.add('active');
-
+  spawnBubbles();
   updateStopwatch();
   stopwatchTicker = setInterval(updateStopwatch, 250);
 }
-
 function updateStopwatch() {
   const el = document.getElementById('ks-stopwatch');
   if (el && coldStartAt) el.textContent = fmt((Date.now() - coldStartAt) / 1000);
 }
-
 function finishColdStart() {
   const rampSec = (Date.now() - coldStartAt) / 1000;
   clearInterval(stopwatchTicker); stopwatchTicker = null;
-
   timers = eggs.map(egg => {
     let rem = coldStartRemaining(egg, rampSec);
-    if (rem < 5) rem = 5;   // mind. kurz — „praktisch sofort fertig"
-    return {
-      egg: {...egg},
-      total: rem,
-      started: Date.now(),
-      done: false,
-      firedAt: null,
-      beepIntervalId: null
-    };
+    if (rem < 5) rem = 5;
+    return { egg: {...egg}, total: rem, started: Date.now(), done: false, firedAt: null, beepIntervalId: null };
   });
-
   document.getElementById('kaltstart-screen').classList.remove('active');
   enterTimerScreen();
 }
-
 function abortColdStart() {
   clearInterval(stopwatchTicker); stopwatchTicker = null;
   coldStartAt = null;
@@ -1019,7 +1103,9 @@ function abortColdStart() {
   document.getElementById('config-screen').classList.remove('hidden');
 }
 
-// ── Gemeinsamer Übergang in den Timer-Screen (beide Methoden) ──
+// ═══════════════════════════════════════
+// TIMER SCREEN
+// ═══════════════════════════════════════
 function enterTimerScreen() {
   buildTimerCards();
   document.getElementById('config-screen').classList.add('hidden');
@@ -1028,7 +1114,7 @@ function enterTimerScreen() {
   ticker = setInterval(tick, 250);
 }
 
-const CIRC = 2 * Math.PI * 40; // r=40 → circumference ≈ 251.3
+const CIRC = 2 * Math.PI * 40;
 
 function buildTimerCards() {
   const grid = document.getElementById('timers-grid');
@@ -1072,48 +1158,33 @@ function tick() {
     const elapsed  = (Date.now() - t.started) / 1000;
     const remain   = Math.max(0, t.total - elapsed);
     const progress = (t.total - remain) / t.total;
-
-    const rtEl  = document.getElementById(`rt-${i}`);
-    const rpEl  = document.getElementById(`rp-${i}`);
-    const spEl  = document.getElementById(`sp-${i}`);
-    const tcEl  = document.getElementById(`tc-${i}`);
-
+    const rtEl = document.getElementById(`rt-${i}`);
+    const rpEl = document.getElementById(`rp-${i}`);
+    const spEl = document.getElementById(`sp-${i}`);
+    const tcEl = document.getElementById(`tc-${i}`);
     if (rtEl) rtEl.textContent = fmt(remain);
     if (rpEl) rpEl.style.strokeDashoffset = (CIRC * (1 - progress)).toFixed(2);
-
     if (remain <= 0) {
       t.done = true;
-      if (rtEl) rtEl.closest('.ring-center').innerHTML =
-        '<div class="ring-done-icon">✓</div>';
+      if (rtEl) rtEl.closest('.ring-center').innerHTML = '<div class="ring-done-icon">✓</div>';
       if (rpEl) rpEl.style.strokeDashoffset = '0';
-      if (spEl) {
-        spEl.classList.add('done');
-        spEl.innerHTML = '<div class="status-dot"></div>Fertig!';
-      }
+      if (spEl) { spEl.classList.add('done'); spEl.innerHTML = '<div class="status-dot"></div>Fertig!'; }
       if (tcEl) tcEl.classList.add('done');
       onDone(t.egg, i);
-    } else {
-      allDone = false;
-    }
+    } else { allDone = false; }
   });
-  if (allDone) {
-    clearInterval(ticker);
-    toast('Alle Eier sind fertig! 🥚', 'success');
-  }
+  if (allDone) { clearInterval(ticker); toast('Alle Eier sind fertig! 🥚', 'success'); }
 }
 
 function onDone(egg, timerIdx) {
   ensureAudioCtx();
   playBeepBurst();
-
   toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🔊`, 'success');
-
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('🥚 Eiermeister', {
       body: `Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${egg.eggL}×${egg.eggB} mm — ist fertig!`
     });
   }
-
   fireTimer(timerIdx);
 }
 
@@ -1124,42 +1195,27 @@ function fireTimer(timerIdx) {
   const startedAt = Date.now();
   t.beepIntervalId = setInterval(() => {
     if (!timers[timerIdx]) return;
-    if (Date.now() - startedAt >= FIRE_MAX_MS) {
-      stopFiring(timerIdx);
-      return;
-    }
+    if (Date.now() - startedAt >= FIRE_MAX_MS) { stopFiring(timerIdx); return; }
     playBeepBurst();
   }, FIRE_REPEAT_MS);
 }
-
 function stopFiring(timerIdx) {
   const t = timers[timerIdx];
-  if (t && t.beepIntervalId) {
-    clearInterval(t.beepIntervalId);
-    t.beepIntervalId = null;
-  }
+  if (t && t.beepIntervalId) { clearInterval(t.beepIntervalId); t.beepIntervalId = null; }
 }
 
 let audioCtx = null;
-
 function ensureAudioCtx() {
   if (!audioCtx) {
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) { audioCtx = null; }
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { audioCtx = null; }
   }
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }
 
 function playBeepBurst() {
-  // Vibration (Mobile)
-  if (navigator.vibrate) {
-    navigator.vibrate([200, 100, 200, 100, 400]);
-  }
-
-  // Beep (Browser) — drei kurze 880-Hz-Töne
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
   if (!audioCtx) return;
-
   try {
     const now = audioCtx.currentTime;
     for (let i = 0; i < 3; i++) {
@@ -1183,9 +1239,7 @@ function stopTimers() {
   clearInterval(ticker); ticker = null;
   timers.forEach((t, i) => stopFiring(i));
   timers = [];
-
   releaseWakeLock();
-
   document.getElementById('timer-screen').classList.remove('active');
   document.getElementById('config-screen').classList.remove('hidden');
   document.getElementById('timers-grid').innerHTML = '';
