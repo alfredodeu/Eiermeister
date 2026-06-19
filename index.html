@@ -364,6 +364,7 @@
       align-items: center; justify-content: center;
     }
     .ring-time-text { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+    .ring-time-text.overtime { color: #22c55e; }
     .ring-done-icon { font-size: 30px; }
 
     .timer-info { flex: 1; min-width: 0; }
@@ -386,6 +387,17 @@
     }
     .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .status-dot.pulse { animation: blink 1s infinite; }
+
+    .stop-egg-btn {
+      display: inline-block; margin-top: 12px;
+      padding: 8px 16px; border-radius: 10px;
+      border: 1px solid rgba(239,68,68,0.30);
+      background: rgba(239,68,68,0.10);
+      color: #ef4444;
+      font-size: 13px; font-weight: 700; font-family: inherit;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .stop-egg-btn:hover { background: rgba(239,68,68,0.18); }
 
     .timer-actions { display: flex; gap: 12px; margin-top: 20px; }
     .btn-sec {
@@ -758,12 +770,12 @@ let altitude = 100;
 let eggs     = [mkEgg(1)];
 let timers   = [];
 let ticker   = null;
+let allDoneAnnounced = false;
 let wakeLock = null;
 let method   = 'einlegen';
 let coldStartAt     = null;
 let stopwatchTicker = null;
 const FIRE_REPEAT_MS = 2500;
-const FIRE_MAX_MS    = 60000;
 
 function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:8 }; }
 
@@ -1062,7 +1074,7 @@ function startTimers() {
     egg: {...egg},
     total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude),
     started: Date.now(),
-    done: false, firedAt: null, beepIntervalId: null
+    done: false, stopped: false, firedAt: null, beepIntervalId: null
   }));
   enterTimerScreen();
 }
@@ -1092,7 +1104,7 @@ function finishColdStart() {
   timers = eggs.map(egg => {
     let rem = coldStartRemaining(egg, rampSec);
     if (rem < 5) rem = 5;
-    return { egg: {...egg}, total: rem, started: Date.now(), done: false, firedAt: null, beepIntervalId: null };
+    return { egg: {...egg}, total: rem, started: Date.now(), done: false, stopped: false, firedAt: null, beepIntervalId: null };
   });
   document.getElementById('kaltstart-screen').classList.remove('active');
   enterTimerScreen();
@@ -1109,6 +1121,7 @@ function abortColdStart() {
 // TIMER SCREEN
 // ═══════════════════════════════════════
 function enterTimerScreen() {
+  allDoneAnnounced = false;
   buildTimerCards();
   document.getElementById('config-screen').classList.add('hidden');
   document.getElementById('kaltstart-screen').classList.remove('active');
@@ -1147,6 +1160,7 @@ function buildTimerCards() {
         <div class="status-pill" id="sp-${i}">
           <div class="status-dot pulse"></div>kocht…
         </div>
+        <button class="stop-egg-btn" id="stop-${i}" onclick="stopEgg(${i})" style="display:none">⏹ Stop</button>
       </div>
     `;
     grid.appendChild(card);
@@ -1154,28 +1168,40 @@ function buildTimerCards() {
 }
 
 function tick() {
-  let allDone = true;
+  let anyActive = false;
   timers.forEach((t, i) => {
-    if (t.done) return;
-    const elapsed  = (Date.now() - t.started) / 1000;
-    const remain   = Math.max(0, t.total - elapsed);
-    const progress = (t.total - remain) / t.total;
     const rtEl = document.getElementById(`rt-${i}`);
     const rpEl = document.getElementById(`rp-${i}`);
     const spEl = document.getElementById(`sp-${i}`);
     const tcEl = document.getElementById(`tc-${i}`);
-    if (rtEl) rtEl.textContent = fmt(remain);
-    if (rpEl) rpEl.style.strokeDashoffset = (CIRC * (1 - progress)).toFixed(2);
-    if (remain <= 0) {
-      t.done = true;
-      if (rtEl) rtEl.closest('.ring-center').innerHTML = '<div class="ring-done-icon">✓</div>';
-      if (rpEl) rpEl.style.strokeDashoffset = '0';
-      if (spEl) { spEl.classList.add('done'); spEl.innerHTML = '<div class="status-dot"></div>Fertig!'; }
-      if (tcEl) tcEl.classList.add('done');
-      onDone(t.egg, i);
-    } else { allDone = false; }
+    const elapsed = (Date.now() - t.started) / 1000;
+    if (!t.done) {
+      const remain   = Math.max(0, t.total - elapsed);
+      const progress = (t.total - remain) / t.total;
+      if (rtEl) rtEl.textContent = fmt(remain);
+      if (rpEl) rpEl.style.strokeDashoffset = (CIRC * (1 - progress)).toFixed(2);
+      if (remain <= 0) {
+        t.done = true;
+        if (rpEl) rpEl.style.strokeDashoffset = '0';
+        if (rtEl) rtEl.classList.add('overtime');
+        if (spEl) { spEl.classList.add('done'); spEl.innerHTML = '<div class="status-dot"></div>Fertig!'; }
+        if (tcEl) tcEl.classList.add('done');
+        const stopBtn = document.getElementById(`stop-${i}`);
+        if (stopBtn) stopBtn.style.display = '';
+        onDone(t.egg, i);
+      }
+      anyActive = true;
+    } else if (!t.stopped) {
+      // Überzeit nach „Fertig" hochzählen
+      if (rtEl) rtEl.textContent = '+' + fmt(elapsed - t.total);
+      anyActive = true;
+    }
   });
-  if (allDone) { clearInterval(ticker); toast('Alle Eier sind fertig! 🥚', 'success'); }
+  if (!allDoneAnnounced && timers.length && timers.every(t => t.done)) {
+    allDoneAnnounced = true;
+    toast('Alle Eier sind fertig! 🥚', 'success');
+  }
+  if (!anyActive) { clearInterval(ticker); ticker = null; }
 }
 
 function onDone(egg, timerIdx) {
@@ -1194,16 +1220,24 @@ function fireTimer(timerIdx) {
   const t = timers[timerIdx];
   if (!t || t.firedAt) return;
   t.firedAt = Date.now();
-  const startedAt = Date.now();
   t.beepIntervalId = setInterval(() => {
     if (!timers[timerIdx]) return;
-    if (Date.now() - startedAt >= FIRE_MAX_MS) { stopFiring(timerIdx); return; }
     playBeepBurst();
   }, FIRE_REPEAT_MS);
 }
 function stopFiring(timerIdx) {
   const t = timers[timerIdx];
   if (t && t.beepIntervalId) { clearInterval(t.beepIntervalId); t.beepIntervalId = null; }
+}
+function stopEgg(timerIdx) {
+  const t = timers[timerIdx];
+  if (!t) return;
+  stopFiring(timerIdx);
+  t.stopped = true;
+  const spEl  = document.getElementById(`sp-${timerIdx}`);
+  if (spEl) spEl.innerHTML = '<div class="status-dot"></div>gestoppt';
+  const btn = document.getElementById(`stop-${timerIdx}`);
+  if (btn) btn.style.display = 'none';
 }
 
 let audioCtx = null;
