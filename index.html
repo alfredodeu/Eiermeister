@@ -364,7 +364,8 @@
       align-items: center; justify-content: center;
     }
     .ring-time-text { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
-    .ring-time-text.overtime { color: #22c55e; }
+    .ring-time-text.overtime { color: #ef4444; }
+    .ring-sub { font-size: 10px; font-weight: 600; color: var(--em-text-muted); font-variant-numeric: tabular-nums; margin-top: 3px; }
     .ring-done-icon { font-size: 30px; }
 
     .timer-info { flex: 1; min-width: 0; }
@@ -1149,6 +1150,7 @@ function buildTimerCards() {
         </svg>
         <div class="ring-center">
           <div class="ring-time-text" id="rt-${i}">${fmt(t.total)}</div>
+          <div class="ring-sub" id="rs-${i}"></div>
         </div>
       </div>
       <div class="timer-info">
@@ -1184,6 +1186,8 @@ function tick() {
         t.done = true;
         if (rpEl) rpEl.style.strokeDashoffset = '0';
         if (rtEl) rtEl.classList.add('overtime');
+        const rsEl = document.getElementById(`rs-${i}`);
+        if (rsEl) rsEl.textContent = 'Soll ' + fmt(t.total);
         if (spEl) { spEl.classList.add('done'); spEl.innerHTML = '<div class="status-dot"></div>Fertig!'; }
         if (tcEl) tcEl.classList.add('done');
         const stopBtn = document.getElementById(`stop-${i}`);
