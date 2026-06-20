@@ -494,6 +494,52 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* ── Ei auf Display legen & messen ── */
+    .meas-trigger {
+      width: 100%; margin-top: 12px; padding: 11px;
+      border-radius: 10px;
+      border: 1px solid rgba(245,158,11,0.35);
+      background: var(--em-card-bg);
+      color: var(--em-accent-1);
+      font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .meas-trigger:active { background: var(--em-card-hover); }
+
+    .meas-overlay {
+      position: fixed; inset: 0; z-index: 800;
+      background: rgba(10,7,3,0.88);
+      backdrop-filter: blur(2px);
+    }
+    .meas-overlay.hidden { display: none; }
+    .meas-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .meas-panel {
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: max(14px, env(safe-area-inset-top)) 18px 18px;
+      background: linear-gradient(180deg,
+        rgba(26,18,8,0.97) 0%, rgba(26,18,8,0.92) 70%, rgba(26,18,8,0) 100%);
+      display: flex; flex-direction: column; gap: 9px;
+    }
+    .meas-panel .hidden { display: none; }
+    .meas-close {
+      position: absolute; right: 14px;
+      top: max(14px, env(safe-area-inset-top));
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid var(--em-border);
+      background: rgba(255,255,255,0.06); color: var(--em-text);
+      font-size: 15px; line-height: 1; cursor: pointer;
+    }
+    .meas-title { font-size: 17px; font-weight: 700; padding-right: 40px; }
+    .meas-hint { font-size: 12px; line-height: 1.45; color: var(--em-text-muted); }
+    .meas-hint b { color: var(--em-text); font-weight: 700; }
+    .meas-read { font-size: 21px; font-weight: 800; color: var(--em-accent-1); }
+    .meas-lbl {
+      font-size: 11px; color: var(--em-text-muted);
+      display: flex; justify-content: space-between; margin-top: 2px;
+    }
+    .meas-lbl span { color: var(--em-accent-1); font-weight: 700; }
+    .meas-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+
     /* ── Methoden-Umschalter mit Sliding-Indikator ── */
     .method-toggle {
       position: relative;
@@ -693,6 +739,49 @@
   </div>
 </div>
 
+<div class="meas-overlay hidden" id="measure">
+  <svg class="meas-svg" id="meas-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="meas-panel">
+    <button class="meas-close" onclick="closeMeasure()">✕</button>
+
+    <!-- Schritt 1: Kalibrierung -->
+    <div id="meas-cal">
+      <div class="meas-title">📐 Bildschirm kalibrieren</div>
+      <div class="meas-hint">
+        Leg eine <b>EC-/Kreditkarte</b> mit der <b>langen Seite</b> an die
+        <b>linke Bildschirmkante</b>, unten in die Ecke. Schieb den Regler, bis der
+        Rahmen die Karte exakt umschließt.
+      </div>
+      <input type="range" class="hardness-slider" id="cal-slider"
+             min="0" max="100" value="70" oninput="onCalSlider(this)">
+      <div class="meas-row">
+        <button class="btn-cancel" onclick="closeMeasure()">Abbrechen</button>
+        <button class="btn-ok" onclick="saveCalibration()">Passt – weiter</button>
+      </div>
+    </div>
+
+    <!-- Schritt 2: Ei vermessen -->
+    <div id="meas-egg" class="hidden">
+      <div class="meas-title">🥚 Ei vermessen</div>
+      <div class="meas-hint">
+        Leg das Ei <b>unten links in die Ecke</b> (Spitze nach oben). Stell Länge &amp;
+        Breite so ein, dass der Umriss das Ei umschließt.
+      </div>
+      <div class="meas-read"><span id="egg-read">55 × 45 mm</span></div>
+      <div class="meas-lbl"><span>↕ Länge</span><span id="egg-l-val">55 mm</span></div>
+      <input type="range" class="hardness-slider" id="egg-l-slider"
+             min="40" max="80" step="0.5" value="55" oninput="onEggMeasSlider()">
+      <div class="meas-lbl"><span>↔ Breite</span><span id="egg-b-val">45 mm</span></div>
+      <input type="range" class="hardness-slider" id="egg-b-slider"
+             min="30" max="62" step="0.5" value="45" oninput="onEggMeasSlider()">
+      <div class="meas-row">
+        <button class="btn-cancel" onclick="recalibrate()">Neu kalibrieren</button>
+        <button class="btn-ok" onclick="applyMeasure()">Übernehmen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script>
@@ -777,6 +866,18 @@ let method   = 'einlegen';
 let coldStartAt     = null;
 let stopwatchTicker = null;
 const FIRE_REPEAT_MS = 2500;
+
+// Display-Vermessung
+const CARD_LONG_MM  = 85.6;   // ISO/IEC 7810 ID-1 Langseite
+const CARD_SHORT_MM = 53.98;  // ISO/IEC 7810 ID-1 Kurzseite
+let measureEggId = null;
+let pxPerMm  = parseFloat(localStorage.getItem('em_pxPerMm')) || 0;
+let measArea = { w: 0, h: 0 };
+let calPx    = 0;   // aktuelle Karten-Langseite in CSS-px
+let measL    = 55;  // aktuell eingestellte Ei-Länge in mm
+let measB    = 45;  // aktuell eingestellte Ei-Breite in mm
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:8 }; }
 
@@ -910,6 +1011,9 @@ function buildCard(egg) {
               </div>
             </div>
           </div>
+          <button type="button" class="meas-trigger" onclick="openMeasure(${egg.id})">
+            📐 Ei auf Display legen &amp; messen
+          </button>
         </div>
 
         <div class="field-group">
@@ -1296,6 +1400,138 @@ function closeModal() { document.getElementById('modal').classList.add('hidden')
 function saveAlt() {
   const v = parseInt(document.getElementById('modal-input').value, 10);
   if (!isNaN(v) && v >= 0 && v <= 5000) { setAlt(v, false); closeModal(); }
+}
+
+// ═══════════════════════════════════════
+// EI AUF DISPLAY LEGEN & MESSEN
+// ═══════════════════════════════════════
+function openMeasure(id) {
+  measureEggId = id;
+  const egg = eggs.find(e => e.id === id);
+  if (egg) { measL = clamp(egg.eggL, 40, 80); measB = clamp(egg.eggB, 30, 62); }
+  document.getElementById('measure').classList.remove('hidden');
+  // Layout abwarten, dann Fläche vermessen
+  requestAnimationFrame(() => {
+    measLayout();
+    pxPerMm = parseFloat(localStorage.getItem('em_pxPerMm')) || 0;
+    if (pxPerMm > 0) showEggPanel(); else showCalPanel();
+  });
+}
+
+function closeMeasure() {
+  document.getElementById('measure').classList.add('hidden');
+  measureEggId = null;
+}
+
+function measLayout() {
+  const svg = document.getElementById('meas-svg');
+  const r = svg.getBoundingClientRect();
+  measArea.w = r.width;
+  measArea.h = r.height;
+  svg.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
+}
+
+// ── Kalibrierung ──
+function calBounds() {
+  const maxLong = Math.min(measArea.h * 0.95,
+                           measArea.w / (CARD_SHORT_MM / CARD_LONG_MM) * 0.95);
+  const minLong = Math.max(180, maxLong * 0.4);
+  return { minLong, maxLong };
+}
+function showCalPanel() {
+  document.getElementById('meas-cal').classList.remove('hidden');
+  document.getElementById('meas-egg').classList.add('hidden');
+  const { minLong, maxLong } = calBounds();
+  const sl = document.getElementById('cal-slider');
+  calPx = minLong + (maxLong - minLong) * (sl.value / 100);
+  sl.style.setProperty('--val', sl.value / 100);
+  drawCal();
+}
+function onCalSlider(el) {
+  const { minLong, maxLong } = calBounds();
+  calPx = minLong + (maxLong - minLong) * (el.value / 100);
+  el.style.setProperty('--val', el.value / 100);
+  drawCal();
+}
+function drawCal() {
+  const H = measArea.h;
+  const lpx = calPx;
+  const wpx = calPx * (CARD_SHORT_MM / CARD_LONG_MM);
+  const topY = H - lpx;
+  document.getElementById('meas-svg').innerHTML = `
+    <rect x="0" y="${topY.toFixed(1)}" width="${wpx.toFixed(1)}" height="${lpx.toFixed(1)}"
+      rx="${(Math.min(wpx, lpx) * 0.05).toFixed(1)}"
+      fill="rgba(245,158,11,0.08)" stroke="#f59e0b" stroke-width="2.5"/>
+    <text x="10" y="${(topY + 22).toFixed(1)}" fill="#f59e0b" font-size="13" font-weight="700">85,6 mm</text>
+    <circle cx="0" cy="${H.toFixed(1)}" r="5" fill="#f59e0b"/>
+  `;
+}
+function saveCalibration() {
+  if (!(calPx > 0)) return;
+  pxPerMm = calPx / CARD_LONG_MM;
+  localStorage.setItem('em_pxPerMm', String(pxPerMm));
+  showEggPanel();
+}
+function recalibrate() {
+  localStorage.removeItem('em_pxPerMm');
+  pxPerMm = 0;
+  showCalPanel();
+}
+
+// ── Ei vermessen ──
+function showEggPanel() {
+  document.getElementById('meas-egg').classList.remove('hidden');
+  document.getElementById('meas-cal').classList.add('hidden');
+  const lEl = document.getElementById('egg-l-slider');
+  const bEl = document.getElementById('egg-b-slider');
+  lEl.max = Math.min(80, (measArea.h / pxPerMm) * 0.97).toFixed(0);
+  bEl.max = Math.min(62, (measArea.w / pxPerMm) * 0.97).toFixed(0);
+  lEl.value = clamp(measL, +lEl.min, +lEl.max);
+  bEl.value = clamp(measB, +bEl.min, +bEl.max);
+  onEggMeasSlider();
+}
+function onEggMeasSlider() {
+  const lEl = document.getElementById('egg-l-slider');
+  const bEl = document.getElementById('egg-b-slider');
+  measL = parseFloat(lEl.value);
+  measB = parseFloat(bEl.value);
+  lEl.style.setProperty('--val', (measL - lEl.min) / (lEl.max - lEl.min));
+  bEl.style.setProperty('--val', (measB - bEl.min) / (bEl.max - bEl.min));
+  document.getElementById('egg-l-val').textContent = `${measL.toFixed(0)} mm`;
+  document.getElementById('egg-b-val').textContent = `${measB.toFixed(0)} mm`;
+  document.getElementById('egg-read').textContent =
+    `${measL.toFixed(0)} × ${measB.toFixed(0)} mm · ~${Math.round(eggMass(measL, measB))} g`;
+  drawEgg();
+}
+function drawEgg() {
+  const H = measArea.h;
+  const wpx = measB * pxPerMm;
+  const lpx = measL * pxPerMm;
+  const topY = H - lpx;
+  document.getElementById('meas-svg').innerHTML = `
+    <path d="M ${wpx.toFixed(1)} ${H.toFixed(1)}
+             A ${wpx.toFixed(1)} ${lpx.toFixed(1)} 0 0 1 0 ${topY.toFixed(1)}
+             L 0 ${H.toFixed(1)} Z"
+      fill="rgba(245,158,11,0.10)" stroke="#f59e0b" stroke-width="2.5"/>
+    <line x1="${wpx.toFixed(1)}" y1="0" x2="${wpx.toFixed(1)}" y2="${H.toFixed(1)}"
+      stroke="rgba(245,158,11,0.55)" stroke-width="1" stroke-dasharray="6 6"/>
+    <line x1="0" y1="${topY.toFixed(1)}" x2="${measArea.w.toFixed(1)}" y2="${topY.toFixed(1)}"
+      stroke="rgba(245,158,11,0.55)" stroke-width="1" stroke-dasharray="6 6"/>
+    <text x="${(wpx + 8).toFixed(1)}" y="${(H - 12).toFixed(1)}" fill="#f59e0b" font-size="13" font-weight="700">${measB.toFixed(0)} mm</text>
+    <text x="8" y="${(topY - 8).toFixed(1)}" fill="#f59e0b" font-size="13" font-weight="700">${measL.toFixed(0)} mm</text>
+    <circle cx="0" cy="${H.toFixed(1)}" r="5" fill="#f59e0b"/>
+  `;
+}
+function applyMeasure() {
+  const egg = eggs.find(e => e.id === measureEggId);
+  if (!egg) { closeMeasure(); return; }
+  const L = clamp(Math.round(measL), 45, 75);
+  const B = clamp(Math.round(measB), 35, 58);
+  egg.eggL = L;
+  egg.eggB = B;
+  renderEggs();
+  closeMeasure();
+  toast(`Ei ${egg.id}: ${L} × ${B} mm übernommen`, 'success');
 }
 
 // ═══════════════════════════════════════
