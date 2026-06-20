@@ -774,10 +774,12 @@
       <div class="meas-lbl"><span>↔ Breite</span><span id="egg-b-val">45 mm</span></div>
       <input type="range" class="hardness-slider" id="egg-b-slider"
              min="30" max="62" step="0.5" value="45" oninput="onEggMeasSlider()">
-      <div class="meas-row">
-        <button class="btn-cancel" onclick="recalibrate()">Neu kalibrieren</button>
-        <button class="btn-ok" onclick="applyMeasure()">Übernehmen</button>
-      </div>
+      <button class="btn-ok" style="width:100%;margin-top:10px" onclick="applyMeasure()">Übernehmen</button>
+      <button type="button" onclick="recalibrate()"
+        style="width:100%;margin-top:8px;padding:8px;background:none;border:none;
+               color:var(--em-text-muted);font-size:12px;font-family:inherit;cursor:pointer;">
+        Neu kalibrieren
+      </button>
     </div>
   </div>
 </div>
