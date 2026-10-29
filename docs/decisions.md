@@ -20,6 +20,26 @@ Diese Datei dokumentiert technische oder organisatorische Entscheidungen, damit 
 - Begründung: Keine zuverlässige Web-API für physische Bildschirmgröße; Referenzobjekt bekannter Größe ist der Standard-Trick solcher Tools. Kein Kamerazugriff nötig, passt in die Single-File-Architektur (`index.html`), keine neuen Abhängigkeiten.
 - Auswirkungen: Lokale Vorschau via `python -m http.server 8081` (`.claude/launch.json` ergänzt). Genauigkeit hängt an sauberer Kalibrierung; „Neu kalibrieren" im Ei-Panel verfügbar.
 
+### iOS-Alarm: Audio-Session statt Stummschalter-Hinweis
+- Datum: 2026-10-29
+- Status: angenommen
+- Kontext: Zielplattform ist iOS. Web Audio respektiert dort den Stummschalter; nach Sperre/Anruf steht der AudioContext auf `interrupted`. JS pausiert bei gesperrtem Display komplett.
+- Entscheidung: `navigator.audioSession.type = 'playback'` (iOS 17+), sonst stilles `<audio>` in Schleife (nur iOS). `ensureAudioCtx()` setzt bei jedem Zustand ≠ `running` fort; jeder `pointerdown` während einer Kochung reaktiviert Audio + Wake Lock. Benachrichtigungen über `serviceWorker.ready.showNotification` (Android kennt `new Notification` nicht), Wiederholton startet vorher.
+- Begründung: Ohne Server/Push ist kein Alarm bei gesperrtem iPhone möglich; daher Fokus auf „Display an lassen" + zuverlässiger Ton im Vordergrund.
+- Auswirkungen: Nur am echten iPhone prüfbar (Stummschalter, Sperren/Entsperren).
+
+### Persistenz in localStorage
+- Datum: 2026-10-29
+- Status: angenommen
+- Entscheidung / Schlüssel:
+  - `em_eggs` – Ei-Einstellungen (max. 4, beim Laden geclamped)
+  - `em_alt` – manuelle Höhe; gesetzt ⇒ GPS wird ignoriert, leeres Feld im Modal löscht sie
+  - `em_session` – laufende Kochung (`timers`: egg/total/started/stopped/inserted) oder `coldStartAt`; wird nach > 1 h bzw. wenn alles gestoppt verworfen
+  - `em_sync` – „Alle gleichzeitig fertig" (Einlegen-Modus, > 1 Ei; kürzere Eier mit `started` in der Zukunft, `inserted=false`)
+  - `em_corr` – persönlicher Zeitfaktor aus Rückmeldung (±3 % je Klick, 0,85–1,15), wirkt in `cookSec()`
+  - `em_pxPerMm` – Display-Kalibrierung (siehe oben)
+- Begründung: iOS Safari beendet Hintergrund-Tabs aggressiv; Zeit wird absolut über `Date.now()` gerechnet, daher ist Wiederherstellung trivial.
+
 ## Hinweise
 - Nur dauerhafte, wiederverwendbare Entscheidungen eintragen.
 - Keine flüchtigen Chat-Zwischenstände hier speichern.
