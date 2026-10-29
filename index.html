@@ -667,7 +667,8 @@
   <div id="config-screen">
     <div class="header">
       <div class="header-title">🥚 Eiermeister</div>
-      <div class="altitude-badge" id="alt-badge" onclick="openModal()">
+      <div class="altitude-badge" id="alt-badge" onclick="openModal()"
+           role="button" tabindex="0" aria-label="Höhe über Meer ändern">
         <div class="alt-dot loading" id="alt-dot"></div>
         <span id="alt-txt">wird ermittelt…</span>
       </div>
@@ -695,11 +696,11 @@
   <div id="timer-screen">
     <div class="timer-header">
       <div class="timer-title">🥚 Eiermeister</div>
-      <button class="back-btn" onclick="stopTimers()">✕ Abbrechen</button>
+      <button class="back-btn" onclick="leaveTimers()">✕ Abbrechen</button>
     </div>
     <div class="timers-grid" id="timers-grid"></div>
     <div class="timer-actions">
-      <button class="btn-sec" onclick="stopTimers()">← Neue Kochung</button>
+      <button class="btn-sec" onclick="leaveTimers()">← Neue Kochung</button>
     </div>
     <div class="ios-hint">
       🔊 Bildschirm eingeschaltet lassen und App im Vordergrund – bei gesperrtem iPhone pausiert die App und kann nicht klingeln.
@@ -710,7 +711,7 @@
   <div id="kaltstart-screen">
     <div class="timer-header">
       <div class="timer-title">❄️ Kaltstart</div>
-      <button class="back-btn" onclick="abortColdStart()">✕ Abbrechen</button>
+      <button class="back-btn" onclick="leaveColdStart()">✕ Abbrechen</button>
     </div>
     <div class="ks-card">
       <div id="ks-bubbles"></div>
@@ -731,7 +732,7 @@
     <div class="modal-title">📍 Höhe über Meer</div>
     <input class="modal-input" id="modal-input" type="number"
            min="0" max="5000" placeholder="z.B. 340">
-    <p class="modal-note">Meter ü. NN — beeinflusst den Siedepunkt des Wassers</p>
+    <p class="modal-note">Meter ü. NN — beeinflusst den Siedepunkt des Wassers.<br>Feld leeren = wieder per GPS ermitteln.</p>
     <div class="modal-row">
       <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
       <button class="btn-ok"     onclick="saveAlt()">Übernehmen</button>
@@ -742,7 +743,7 @@
 <div class="meas-overlay hidden" id="measure">
   <svg class="meas-svg" id="meas-svg" xmlns="http://www.w3.org/2000/svg"></svg>
   <div class="meas-panel">
-    <button class="meas-close" onclick="closeMeasure()">✕</button>
+    <button class="meas-close" onclick="closeMeasure()" aria-label="Schließen">✕</button>
 
     <!-- Schritt 1: Kalibrierung -->
     <div id="meas-cal">
@@ -752,7 +753,7 @@
         <b>linke Bildschirmkante</b>, unten in die Ecke. Schieb den Regler, bis der
         Rahmen die Karte exakt umschließt.
       </div>
-      <input type="range" class="hardness-slider" id="cal-slider"
+      <input type="range" class="hardness-slider" id="cal-slider" aria-label="Kartengröße"
              min="0" max="100" value="70" oninput="onCalSlider(this)">
       <div class="meas-row">
         <button class="btn-cancel" onclick="closeMeasure()">Abbrechen</button>
@@ -769,11 +770,11 @@
       </div>
       <div class="meas-read"><span id="egg-read">55 × 45 mm</span></div>
       <div class="meas-lbl"><span>↕ Länge</span><span id="egg-l-val">55 mm</span></div>
-      <input type="range" class="hardness-slider" id="egg-l-slider"
-             min="40" max="80" step="0.5" value="55" oninput="onEggMeasSlider()">
+      <input type="range" class="hardness-slider" id="egg-l-slider" aria-label="Ei-Länge"
+             min="45" max="75" step="0.5" value="55" oninput="onEggMeasSlider()">
       <div class="meas-lbl"><span>↔ Breite</span><span id="egg-b-val">45 mm</span></div>
-      <input type="range" class="hardness-slider" id="egg-b-slider"
-             min="30" max="62" step="0.5" value="45" oninput="onEggMeasSlider()">
+      <input type="range" class="hardness-slider" id="egg-b-slider" aria-label="Ei-Breite"
+             min="35" max="58" step="0.5" value="45" oninput="onEggMeasSlider()">
       <button class="btn-ok" style="width:100%;margin-top:10px" onclick="applyMeasure()">Übernehmen</button>
       <button type="button" onclick="recalibrate()"
         style="width:100%;margin-top:8px;padding:8px;background:none;border:none;
@@ -810,7 +811,7 @@ function cookSec(Lmm, Bmm, hardness, tempC, altM) {
   return Math.max(60, factor * Math.log(0.76 * (Tw - tempC) / (Tw - Ty)));
 }
 
-const WATER_START_C = 20;
+const WATER_START_C = 12;   // typische Leitungswasser-Temperatur
 function simulateSeconds(egg, surfaceTempFn) {
   const M = eggMass(egg.eggL, egg.eggB);
   const rho = 1.032, c = 3.7, Kc = 5.4e-3;
@@ -859,7 +860,7 @@ function hardLabel(h) {
 // STATE
 // ═══════════════════════════════════════
 let altitude = 100;
-let eggs     = [mkEgg(1)];
+let eggs     = loadEggs();
 let timers   = [];
 let ticker   = null;
 let allDoneAnnounced = false;
@@ -884,22 +885,98 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function mkEgg(id) { return { id, eggL:55, eggB:45, hardness:0.5, tempC:8 }; }
 
 // ═══════════════════════════════════════
+// SPEICHERN (localStorage)
+// ═══════════════════════════════════════
+const SESSION_KEY = 'em_session';
+
+function loadEggs() {
+  try {
+    const arr = JSON.parse(localStorage.getItem('em_eggs'));
+    if (Array.isArray(arr) && arr.length >= 1 && arr.length <= 4) {
+      return arr.map((e, i) => {
+        const d = mkEgg(i + 1);
+        return {
+          id: d.id,
+          eggL:     clamp(+e.eggL     || d.eggL, 45, 75),
+          eggB:     clamp(+e.eggB     || d.eggB, 35, 58),
+          hardness: clamp(isNaN(+e.hardness) ? d.hardness : +e.hardness, 0, 1),
+          tempC:    clamp(+e.tempC    || d.tempC, 1, 30),
+        };
+      });
+    }
+  } catch (e) {}
+  return [mkEgg(1)];
+}
+function saveEggs() {
+  try { localStorage.setItem('em_eggs', JSON.stringify(eggs)); } catch (e) {}
+}
+function manualAlt() { return localStorage.getItem('em_alt') !== null; }
+
+// Laufende Kochung sichern, damit Neuladen / iOS-Tab-Kill sie nicht verliert
+function saveSession() {
+  try {
+    if (timers.length) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        timers: timers.map(t => ({ egg: t.egg, total: t.total, started: t.started,
+                                   stopped: t.stopped, inserted: t.inserted }))
+      }));
+    } else if (coldStartAt) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ coldStartAt }));
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
+  } catch (e) {}
+}
+function restoreSession() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) {}
+  if (!s) return false;
+  if (Array.isArray(s.timers) && s.timers.length) {
+    // Verwerfen, wenn alles gestoppt ist oder das letzte Ei seit > 1 h fertig ist
+    const lastEnd = Math.max(...s.timers.map(t => t.started + t.total * 1000));
+    if (s.timers.every(t => t.stopped) || Date.now() - lastEnd > 3600e3) {
+      localStorage.removeItem(SESSION_KEY); return false;
+    }
+    timers = s.timers.map(t => ({
+      egg: t.egg, total: t.total, started: t.started,
+      done: !!t.stopped, stopped: !!t.stopped, inserted: t.inserted !== false,
+      firedAt: null, beepIntervalId: null
+    }));
+    requestWakeLock();
+    enterTimerScreen();
+    toast('Kochung wiederhergestellt – einmal antippen, damit der Alarm klingen kann', 'info');
+    return true;
+  }
+  if (s.coldStartAt && Date.now() - s.coldStartAt < 3600e3) {
+    coldStartAt = s.coldStartAt;
+    requestWakeLock();
+    showColdStartScreen();
+    toast('Kaltstart wiederhergestellt', 'info');
+    return true;
+  }
+  localStorage.removeItem(SESSION_KEY);
+  return false;
+}
+
+// ═══════════════════════════════════════
 // GPS
 // ═══════════════════════════════════════
 function fetchGPS() {
   if (!navigator.geolocation) { setAlt(altitude, false); return; }
   navigator.geolocation.getCurrentPosition(
     pos => {
+      if (manualAlt()) return;
       fetch(`https://api.open-meteo.com/v1/elevation?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}`)
         .then(r => r.json())
         .then(data => {
+          if (manualAlt()) return;   // Handeingabe hat Vorrang vor später GPS-Antwort
           const elev = data?.elevation?.[0];
           if (elev != null && !isNaN(elev)) setAlt(Math.round(elev), true);
           else { setAlt(altitude, false); toast('Höhe konnte nicht ermittelt werden — bitte manuell eintragen', 'info'); }
         })
-        .catch(() => { setAlt(altitude, false); toast('Höhe-API nicht erreichbar — bitte manuell eintragen', 'info'); });
+        .catch(() => { if (manualAlt()) return; setAlt(altitude, false); toast('Höhe-API nicht erreichbar — bitte manuell eintragen', 'info'); });
     },
-    () => { setAlt(altitude, false); toast('Standort nicht verfügbar — Höhe bitte manuell eintragen', 'info'); },
+    () => { if (manualAlt()) return; setAlt(altitude, false); toast('Standort nicht verfügbar — Höhe bitte manuell eintragen', 'info'); },
     { enableHighAccuracy: false, timeout: 8000 }
   );
 }
@@ -976,7 +1053,7 @@ function buildCard(egg) {
   d.innerHTML = `
     <div class="egg-card-header">
       <div class="egg-card-title">🥚 Ei ${egg.id}</div>
-      ${eggs.length > 1 ? `<button class="remove-btn" onclick="removeEgg(${egg.id})">✕</button>` : ''}
+      ${eggs.length > 1 ? `<button class="remove-btn" onclick="removeEgg(${egg.id})" aria-label="Ei ${egg.id} entfernen">✕</button>` : ''}
     </div>
 
     <div class="egg-card-body">
@@ -990,10 +1067,10 @@ function buildCard(egg) {
           <div class="dim-grid">
             <div>
               <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
-                <span>↔ Länge</span><span id="lblL-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggL} mm</span>
+                <span>↕ Länge</span><span id="lblL-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggL} mm</span>
               </div>
               <div class="hardness-wrap">
-                <input type="range" class="hardness-slider"
+                <input type="range" class="hardness-slider" aria-label="Länge"
                   id="slL-${egg.id}" min="45" max="75" step="1" value="${egg.eggL}"
                   style="--val:${((egg.eggL-45)/30).toFixed(3)}"
                   oninput="onDimSlider(${egg.id},'eggL',this,45,30)">
@@ -1002,10 +1079,10 @@ function buildCard(egg) {
             </div>
             <div>
               <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
-                <span>↕ Breite</span><span id="lblB-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggB} mm</span>
+                <span>↔ Breite</span><span id="lblB-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggB} mm</span>
               </div>
               <div class="hardness-wrap">
-                <input type="range" class="hardness-slider"
+                <input type="range" class="hardness-slider" aria-label="Breite"
                   id="slB-${egg.id}" min="35" max="58" step="1" value="${egg.eggB}"
                   style="--val:${((egg.eggB-35)/23).toFixed(3)}"
                   oninput="onDimSlider(${egg.id},'eggB',this,35,23)">
@@ -1021,7 +1098,7 @@ function buildCard(egg) {
         <div class="field-group">
           <div class="field-label">Härte</div>
           <div class="hardness-wrap">
-            <input type="range" class="hardness-slider"
+            <input type="range" class="hardness-slider" aria-label="Härte"
               id="hs${egg.id}" min="0" max="1" step="0.01" value="${egg.hardness}"
               style="--val:${egg.hardness}"
               oninput="onSlider(${egg.id},this)">
@@ -1041,7 +1118,7 @@ function buildCard(egg) {
             </span>
           </div>
           <div class="hardness-wrap">
-            <input type="range" class="hardness-slider"
+            <input type="range" class="hardness-slider" aria-label="Starttemperatur"
               id="ts${egg.id}" min="1" max="30" step="1" value="${egg.tempC}"
               style="--val:${((egg.tempC - 1) / 29).toFixed(3)}"
               oninput="onTempSlider(${egg.id},this)">
@@ -1107,6 +1184,7 @@ function upd(id, field, val) {
   const egg = eggs.find(e => e.id === id);
   if (!egg) return;
   egg[field] = val;
+  saveEggs();
   if (field === 'hardness') {
     ['weich','mittel','hart'].forEach(l => document.getElementById(`hl-${l}-${id}`)?.classList.remove('active'));
     document.getElementById(`hl-${hardLabel(val)}-${id}`)?.classList.add('active');
@@ -1127,10 +1205,12 @@ function refreshPreviews() { eggs.forEach(e => refreshPreview(e.id)); }
 function addEgg() {
   if (eggs.length >= 4) return;
   eggs.push(mkEgg(Math.max(...eggs.map(e=>e.id)) + 1));
+  saveEggs();
   renderEggs();
 }
 function removeEgg(id) {
   eggs = eggs.filter(e => e.id !== id);
+  saveEggs();
   renderEggs();
 }
 
@@ -1181,10 +1261,11 @@ function startTimers() {
   timers = eggs.map(egg => ({
     egg: {...egg},
     total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude),
-    started: Date.now(),
+    started: Date.now(), inserted: true,
     done: false, stopped: false, firedAt: null, beepIntervalId: null
   }));
   enterTimerScreen();
+  saveSession();
 }
 
 // ═══════════════════════════════════════
@@ -1197,6 +1278,10 @@ function beginColdStart() {
   startSilentAudio();
   requestWakeLock();
   coldStartAt = Date.now();
+  showColdStartScreen();
+  saveSession();
+}
+function showColdStartScreen() {
   document.getElementById('config-screen').classList.add('hidden');
   document.getElementById('kaltstart-screen').classList.add('active');
   spawnBubbles();
@@ -1210,21 +1295,32 @@ function updateStopwatch() {
 function finishColdStart() {
   const rampSec = (Date.now() - coldStartAt) / 1000;
   clearInterval(stopwatchTicker); stopwatchTicker = null;
+  coldStartAt = null;
   timers = eggs.map(egg => {
     let rem = coldStartRemaining(egg, rampSec);
     if (rem < 5) rem = 5;
-    return { egg: {...egg}, total: rem, started: Date.now(), done: false, stopped: false, firedAt: null, beepIntervalId: null };
+    return { egg: {...egg}, total: rem, started: Date.now(), inserted: true, done: false, stopped: false, firedAt: null, beepIntervalId: null };
   });
   document.getElementById('kaltstart-screen').classList.remove('active');
   enterTimerScreen();
+  saveSession();
 }
 function abortColdStart() {
   clearInterval(stopwatchTicker); stopwatchTicker = null;
   coldStartAt = null;
+  saveSession();
   stopSilentAudio();
   releaseWakeLock();
   document.getElementById('kaltstart-screen').classList.remove('active');
   document.getElementById('config-screen').classList.remove('hidden');
+}
+function leaveColdStart() {
+  if (confirm('Kaltstart wirklich abbrechen?')) abortColdStart();
+}
+function leaveTimers() {
+  // Nachfragen, solange noch ein Ei kocht – fertige/klingelnde Eier nicht
+  if (timers.some(t => !t.done) && !confirm('Laufende Kochung wirklich abbrechen?')) return;
+  stopTimers();
 }
 
 // ═══════════════════════════════════════
@@ -1236,6 +1332,8 @@ function enterTimerScreen() {
   document.getElementById('config-screen').classList.add('hidden');
   document.getElementById('kaltstart-screen').classList.remove('active');
   document.getElementById('timer-screen').classList.add('active');
+  timers.forEach((t, i) => { if (t.stopped) markStoppedUI(i); });
+  tick();
   ticker = setInterval(tick, 250);
 }
 
@@ -1343,8 +1441,17 @@ function stopEgg(timerIdx) {
   if (!t) return;
   stopFiring(timerIdx);
   t.stopped = true;
-  const spEl  = document.getElementById(`sp-${timerIdx}`);
-  if (spEl) spEl.innerHTML = '<div class="status-dot"></div>gestoppt';
+  markStoppedUI(timerIdx);
+  saveSession();
+}
+function markStoppedUI(timerIdx) {
+  const t = timers[timerIdx];
+  const spEl = document.getElementById(`sp-${timerIdx}`);
+  if (spEl) { spEl.classList.add('done'); spEl.innerHTML = '<div class="status-dot"></div>gestoppt'; }
+  const rpEl = document.getElementById(`rp-${timerIdx}`);
+  if (rpEl) rpEl.style.strokeDashoffset = '0';
+  const rsEl = document.getElementById(`rs-${timerIdx}`);
+  if (rsEl && t) rsEl.textContent = 'Soll ' + fmt(t.total);
   const btn = document.getElementById(`stop-${timerIdx}`);
   if (btn) btn.style.display = 'none';
 }
@@ -1435,6 +1542,8 @@ function stopTimers() {
   clearInterval(ticker); ticker = null;
   timers.forEach((t, i) => stopFiring(i));
   timers = [];
+  coldStartAt = null;
+  saveSession();
   stopSilentAudio();
   releaseWakeLock();
   document.getElementById('timer-screen').classList.remove('active');
@@ -1451,8 +1560,22 @@ function openModal() {
 }
 function closeModal() { document.getElementById('modal').classList.add('hidden'); }
 function saveAlt() {
-  const v = parseInt(document.getElementById('modal-input').value, 10);
-  if (!isNaN(v) && v >= 0 && v <= 5000) { setAlt(v, false); closeModal(); }
+  const raw = document.getElementById('modal-input').value.trim();
+  if (raw === '') {
+    // Leeres Feld → Handeingabe verwerfen, wieder per GPS
+    localStorage.removeItem('em_alt');
+    document.getElementById('alt-dot').classList.add('loading');
+    document.getElementById('alt-txt').textContent = 'wird ermittelt…';
+    closeModal();
+    fetchGPS();
+    return;
+  }
+  const v = parseInt(raw, 10);
+  if (!isNaN(v) && v >= 0 && v <= 5000) {
+    localStorage.setItem('em_alt', String(v));
+    setAlt(v, false);
+    closeModal();
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1461,7 +1584,7 @@ function saveAlt() {
 function openMeasure(id) {
   measureEggId = id;
   const egg = eggs.find(e => e.id === id);
-  if (egg) { measL = clamp(egg.eggL, 40, 80); measB = clamp(egg.eggB, 30, 62); }
+  if (egg) { measL = clamp(egg.eggL, 45, 75); measB = clamp(egg.eggB, 35, 58); }
   document.getElementById('measure').classList.remove('hidden');
   // Layout abwarten, dann Fläche vermessen
   requestAnimationFrame(() => {
@@ -1537,8 +1660,8 @@ function showEggPanel() {
   document.getElementById('meas-cal').classList.add('hidden');
   const lEl = document.getElementById('egg-l-slider');
   const bEl = document.getElementById('egg-b-slider');
-  lEl.max = Math.min(80, (measArea.h / pxPerMm) * 0.97).toFixed(0);
-  bEl.max = Math.min(62, (measArea.w / pxPerMm) * 0.97).toFixed(0);
+  lEl.max = Math.min(75, (measArea.h / pxPerMm) * 0.97).toFixed(0);
+  bEl.max = Math.min(58, (measArea.w / pxPerMm) * 0.97).toFixed(0);
   lEl.value = clamp(measL, +lEl.min, +lEl.max);
   bEl.value = clamp(measB, +bEl.min, +bEl.max);
   onEggMeasSlider();
@@ -1582,6 +1705,7 @@ function applyMeasure() {
   const B = clamp(Math.round(measB), 35, 58);
   egg.eggL = L;
   egg.eggB = B;
+  saveEggs();
   renderEggs();
   closeMeasure();
   toast(`Ei ${egg.id}: ${L} × ${B} mm übernommen`, 'success');
@@ -1608,7 +1732,9 @@ function toast(msg, type='info') {
 // ═══════════════════════════════════════
 renderEggs();
 setMethod('einlegen');
-fetchGPS();
+const savedAlt = parseInt(localStorage.getItem('em_alt'), 10);
+if (!isNaN(savedAlt)) setAlt(savedAlt, false); else fetchGPS();
+restoreSession();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
