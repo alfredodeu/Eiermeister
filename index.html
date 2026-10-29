@@ -506,6 +506,44 @@
     }
     .meas-trigger:active { background: var(--em-card-hover); }
 
+    /* ── Größen-Schnellauswahl S/M/L/XL ── */
+    .size-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+    .size-btn {
+      padding: 8px 0; border-radius: 10px;
+      border: 1px solid var(--em-border);
+      background: var(--em-card-bg); color: var(--em-text-muted);
+      font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+    }
+    .size-btn.active {
+      background: linear-gradient(135deg, var(--em-accent-1), var(--em-accent-2));
+      color: #1a1208; border-color: transparent;
+    }
+
+    /* ── Alle gleichzeitig fertig ── */
+    .sync-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 12px; padding: 12px 14px; border-radius: 14px;
+      background: var(--em-card-bg); border: 1px solid var(--em-border);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .sync-row input { width: 20px; height: 20px; accent-color: var(--em-accent-1); }
+    .sync-row small { display: block; font-size: 11px; font-weight: 400; color: var(--em-text-muted); }
+
+    /* ── Rückmeldung nach dem Kochen ── */
+    .fb-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .fb-btn {
+      flex: 1; padding: 10px 6px; border-radius: 10px;
+      border: 1px solid var(--em-border);
+      background: var(--em-card-bg); color: var(--em-text);
+      font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+    }
+    .fb-note { font-size: 12px; color: var(--em-text-muted); margin-top: 10px; }
+    .corr-note { font-size: 11px; color: var(--em-text-muted); text-align: center; margin-top: 10px; }
+    .corr-note button {
+      background: none; border: none; padding: 0; color: var(--em-accent-1);
+      font-size: 11px; font-family: inherit; text-decoration: underline; cursor: pointer;
+    }
+
     .meas-overlay {
       position: fixed; inset: 0; z-index: 800;
       background: rgba(10,7,3,0.88);
@@ -685,11 +723,17 @@
 
     <div class="eggs-container" id="eggs-container"></div>
 
+    <label class="sync-row" id="sync-row" style="display:none">
+      <input type="checkbox" id="sync-chk" onchange="setSync(this.checked)">
+      <span>⏱ Alle gleichzeitig fertig<small>Kürzere Eier legst du später ein – die App sagt Bescheid.</small></span>
+    </label>
+
     <div class="btn-row">
       <button class="add-egg-btn" id="add-btn" onclick="addEgg()">＋ Weiteres Ei</button>
       <button class="start-btn" id="start-einlegen"  onclick="startTimers()">▶ Kochen starten</button>
       <button class="start-btn" id="start-kaltstart" onclick="beginColdStart()" style="display:none">❄️ Ei ins kalte Wasser</button>
     </div>
+    <div class="corr-note" id="corr-note" style="display:none"></div>
   </div>
 
   <!-- ════ TIMER SCREEN ════ -->
@@ -808,7 +852,7 @@ function cookSec(Lmm, Bmm, hardness, tempC, altM) {
   const Ty  = targetTemp(hardness);
   const factor = Math.pow(M, 2/3) * c * Math.pow(rho, 1/3) /
                  (Math.PI**2 * K * Math.pow(4*Math.PI/3, 2/3));
-  return Math.max(60, factor * Math.log(0.76 * (Tw - tempC) / (Tw - Ty)));
+  return Math.max(60, factor * Math.log(0.76 * (Tw - tempC) / (Tw - Ty))) * timeCorr;
 }
 
 const WATER_START_C = 12;   // typische Leitungswasser-Temperatur
@@ -869,6 +913,17 @@ let method   = 'einlegen';
 let coldStartAt     = null;
 let stopwatchTicker = null;
 const FIRE_REPEAT_MS = 2500;
+let syncFinish = localStorage.getItem('em_sync') === '1';
+// Persönlicher Korrekturfaktor aus „zu weich / zu hart"-Rückmeldungen (±15 %)
+let timeCorr = clamp(parseFloat(localStorage.getItem('em_corr')) || 1, 0.85, 1.15);
+
+// EU-Gewichtsklassen → typische Maße (Masse per eggMass ≈ 50/58/66/76 g)
+const SIZE_PRESETS = [
+  { k: 'S',  L: 52, B: 42 },
+  { k: 'M',  L: 55, B: 44 },
+  { k: 'L',  L: 58, B: 46 },
+  { k: 'XL', L: 61, B: 48 },
+];
 
 // Display-Vermessung
 const CARD_LONG_MM  = 85.6;   // ISO/IEC 7810 ID-1 Langseite
@@ -1042,6 +1097,7 @@ function renderEggs() {
   c.innerHTML = '';
   eggs.forEach(e => c.appendChild(buildCard(e)));
   document.getElementById('add-btn').disabled = eggs.length >= 4;
+  updateSyncRow();
 }
 
 function buildCard(egg) {
@@ -1089,6 +1145,11 @@ function buildCard(egg) {
                 <div class="hardness-labels"><span>35</span><span>58 mm</span></div>
               </div>
             </div>
+          </div>
+          <div class="size-presets">
+            ${SIZE_PRESETS.map(p => `<button type="button" id="sz-${p.k}-${egg.id}"
+              class="size-btn${egg.eggL === p.L && egg.eggB === p.B ? ' active' : ''}"
+              aria-label="Größe ${p.k}" onclick="setSize(${egg.id},'${p.k}')">${p.k}</button>`).join('')}
           </div>
           <button type="button" class="meas-trigger" onclick="openMeasure(${egg.id})">
             📐 Ei auf Display legen &amp; messen
@@ -1170,8 +1231,45 @@ function onDimSlider(id, field, el, min, range) {
   if (egg) {
     const badge = document.getElementById(`mass-${id}`);
     if (badge) badge.textContent = `~${Math.round(eggMass(egg.eggL, egg.eggB))} g`;
+    updatePresetActive(egg);
   }
 }
+function updatePresetActive(egg) {
+  SIZE_PRESETS.forEach(p => document.getElementById(`sz-${p.k}-${egg.id}`)
+    ?.classList.toggle('active', egg.eggL === p.L && egg.eggB === p.B));
+}
+function setSize(id, k) {
+  const egg = eggs.find(e => e.id === id);
+  const p = SIZE_PRESETS.find(x => x.k === k);
+  if (!egg || !p) return;
+  egg.eggL = p.L; egg.eggB = p.B;
+  saveEggs();
+  renderEggs();
+}
+
+function setSync(on) {
+  syncFinish = on;
+  localStorage.setItem('em_sync', on ? '1' : '0');
+}
+function updateSyncRow() {
+  const show = method === 'einlegen' && eggs.length > 1;
+  document.getElementById('sync-row').style.display = show ? 'flex' : 'none';
+  document.getElementById('sync-chk').checked = syncFinish;
+}
+function updateCorrNote() {
+  const el = document.getElementById('corr-note');
+  const pct = Math.round((timeCorr - 1) * 100);
+  el.style.display = pct ? 'block' : 'none';
+  el.innerHTML = `Persönliche Korrektur: ${pct > 0 ? '+' : ''}${pct} % · ` +
+                 `<button type="button" onclick="resetCorr()">zurücksetzen</button>`;
+}
+function setCorr(v) {
+  timeCorr = clamp(Math.round(v * 100) / 100, 0.85, 1.15);
+  localStorage.setItem('em_corr', String(timeCorr));
+  updateCorrNote();
+  refreshPreviews();
+}
+function resetCorr() { setCorr(1); }
 function onTempSlider(id, el) {
   const t = parseInt(el.value, 10);
   el.style.setProperty('--val', ((t - 1) / 29).toFixed(3));
@@ -1247,6 +1345,7 @@ function setMethod(m) {
   document.getElementById('method-hint').style.display     = m === 'kaltstart' ? 'block' : 'none';
   document.getElementById('start-einlegen').style.display  = m === 'einlegen'  ? 'flex'  : 'none';
   document.getElementById('start-kaltstart').style.display = m === 'kaltstart' ? 'flex'  : 'none';
+  updateSyncRow();
 }
 
 // ═══════════════════════════════════════
@@ -1258,12 +1357,16 @@ function startTimers() {
   ensureAudioCtx();
   startSilentAudio();
   requestWakeLock();
-  timers = eggs.map(egg => ({
-    egg: {...egg},
-    total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude),
-    started: Date.now(), inserted: true,
-    done: false, stopped: false, firedAt: null, beepIntervalId: null
-  }));
+  const now   = Date.now();
+  const list  = eggs.map(egg => ({ egg: {...egg}, total: cookSec(egg.eggL, egg.eggB, egg.hardness, egg.tempC, altitude) }));
+  const maxT  = Math.max(...list.map(t => t.total));
+  const sync  = syncFinish && list.length > 1;
+  // „Gleichzeitig fertig": kürzere Eier starten um die Differenz später
+  timers = list.map(t => {
+    const delay = sync ? (maxT - t.total) * 1000 : 0;
+    return { ...t, started: now + delay, inserted: delay < 1000,
+             done: false, stopped: false, firedAt: null, beepIntervalId: null };
+  });
   enterTimerScreen();
   saveSession();
 }
@@ -1384,6 +1487,22 @@ function tick() {
     const spEl = document.getElementById(`sp-${i}`);
     const tcEl = document.getElementById(`tc-${i}`);
     const elapsed = (Date.now() - t.started) / 1000;
+    if (!t.inserted) {
+      if (elapsed < 0) {
+        // Wartet noch aufs Einlegen
+        if (rtEl) rtEl.textContent = fmt(t.total);
+        if (spEl) spEl.innerHTML = `<div class="status-dot"></div>einlegen in ${fmt(-elapsed)}`;
+        anyActive = true;
+        return;
+      }
+      t.inserted = true;
+      ensureAudioCtx();
+      playBeepBurst();
+      toast(`Ei ${t.egg.id} jetzt einlegen! 🥚`, 'info');
+      notify(`Ei ${t.egg.id} jetzt ins kochende Wasser legen!`);
+      if (spEl) spEl.innerHTML = '<div class="status-dot pulse"></div>kocht…';
+      saveSession();
+    }
     if (!t.done) {
       const remain   = Math.max(0, t.total - elapsed);
       const progress = (t.total - remain) / t.total;
@@ -1443,6 +1562,29 @@ function stopEgg(timerIdx) {
   t.stopped = true;
   markStoppedUI(timerIdx);
   saveSession();
+  toast(`Ei ${t.egg.id}: jetzt kalt abschrecken 🧊`, 'info');
+  // Rückmeldung → persönlicher Korrekturfaktor
+  const info = document.querySelector(`#tc-${timerIdx} .timer-info`);
+  if (info) {
+    const fb = document.createElement('div');
+    fb.className = 'fb-row';
+    fb.id = `fb-${timerIdx}`;
+    fb.innerHTML = `
+      <button class="fb-btn" onclick="giveFeedback(${timerIdx},  0.03)">Zu weich</button>
+      <button class="fb-btn" onclick="giveFeedback(${timerIdx},  0)">Passt</button>
+      <button class="fb-btn" onclick="giveFeedback(${timerIdx}, -0.03)">Zu hart</button>`;
+    info.appendChild(fb);
+  }
+}
+function giveFeedback(timerIdx, delta) {
+  if (delta) setCorr(timeCorr + delta);
+  const fb = document.getElementById(`fb-${timerIdx}`);
+  if (fb) {
+    const pct = Math.round((timeCorr - 1) * 100);
+    fb.outerHTML = `<div class="fb-note">${delta
+      ? `Danke! Kochzeiten künftig ${pct > 0 ? '+' : ''}${pct} %.`
+      : 'Danke! 👍'}</div>`;
+  }
 }
 function markStoppedUI(timerIdx) {
   const t = timers[timerIdx];
@@ -1732,6 +1874,7 @@ function toast(msg, type='info') {
 // ═══════════════════════════════════════
 renderEggs();
 setMethod('einlegen');
+updateCorrNote();
 const savedAlt = parseInt(localStorage.getItem('em_alt'), 10);
 if (!isNaN(savedAlt)) setAlt(savedAlt, false); else fetchGPS();
 restoreSession();
