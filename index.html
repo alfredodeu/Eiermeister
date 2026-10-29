@@ -702,7 +702,7 @@
       <button class="btn-sec" onclick="stopTimers()">← Neue Kochung</button>
     </div>
     <div class="ios-hint">
-      🔊 iPhone: Stummschalter seitlich deaktivieren, damit der Signalton ertönt. Bildschirm eingeschaltet lassen.
+      🔊 Bildschirm eingeschaltet lassen und App im Vordergrund – bei gesperrtem iPhone pausiert die App und kann nicht klingeln.
     </div>
   </div>
 
@@ -1176,6 +1176,7 @@ function startTimers() {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
   ensureAudioCtx();
+  startSilentAudio();
   requestWakeLock();
   timers = eggs.map(egg => ({
     egg: {...egg},
@@ -1193,6 +1194,7 @@ function beginColdStart() {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
   ensureAudioCtx();
+  startSilentAudio();
   requestWakeLock();
   coldStartAt = Date.now();
   document.getElementById('config-screen').classList.add('hidden');
@@ -1219,6 +1221,7 @@ function finishColdStart() {
 function abortColdStart() {
   clearInterval(stopwatchTicker); stopwatchTicker = null;
   coldStartAt = null;
+  stopSilentAudio();
   releaseWakeLock();
   document.getElementById('kaltstart-screen').classList.remove('active');
   document.getElementById('config-screen').classList.remove('hidden');
@@ -1317,13 +1320,9 @@ function tick() {
 function onDone(egg, timerIdx) {
   ensureAudioCtx();
   playBeepBurst();
-  toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🔊`, 'success');
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('🥚 Eiermeister', {
-      body: `Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${egg.eggL}×${egg.eggB} mm — ist fertig!`
-    });
-  }
   fireTimer(timerIdx);
+  toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🔊`, 'success');
+  notify(`Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${egg.eggL}×${egg.eggB} mm — ist fertig!`);
 }
 
 function fireTimer(timerIdx) {
@@ -1352,11 +1351,62 @@ function stopEgg(timerIdx) {
 
 let audioCtx = null;
 function ensureAudioCtx() {
+  // iOS 17+: Audio-Session „playback" → Alarm auch bei aktivem Stummschalter
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   if (!audioCtx) {
     try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
     catch (e) { audioCtx = null; }
   }
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  // iOS meldet nach Sperre/Anruf „interrupted" statt „suspended"
+  if (audioCtx && audioCtx.state !== 'running') {
+    try { const p = audioCtx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
+}
+
+// iOS < 17: stilles <audio> in Schleife schaltet die Audio-Session auf
+// Medienwiedergabe → Web-Audio-Alarm ignoriert den Stummschalter.
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let silentAudio = null;
+function silentWavUri() {
+  const n = 4000, buf = new Uint8Array(44 + n), v = new DataView(buf.buffer);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) buf[o + i] = s.charCodeAt(i); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true);
+  v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  str(36, 'data'); v.setUint32(40, n, true); buf.fill(128, 44);
+  return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...buf));
+}
+function startSilentAudio() {
+  if (!IS_IOS || navigator.audioSession) return;
+  try {
+    if (!silentAudio) {
+      silentAudio = new Audio(silentWavUri());
+      silentAudio.loop = true;
+      silentAudio.setAttribute('playsinline', '');
+    }
+    const p = silentAudio.play(); if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function stopSilentAudio() { if (silentAudio) silentAudio.pause(); }
+
+// Jede Berührung während einer Kochung reaktiviert Audio & Wake Lock
+// (iOS erlaubt das nur nach Nutzer-Geste, z. B. nach Entsperren/Wiederherstellen).
+document.addEventListener('pointerdown', () => {
+  if (timers.length || coldStartAt) { ensureAudioCtx(); startSilentAudio(); requestWakeLock(); }
+});
+
+function notify(body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = { body, icon: 'icon.svg' };
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.ready
+      .then(r => r.showNotification('🥚 Eiermeister', opts))
+      .catch(() => {});
+  } else {
+    try { new Notification('🥚 Eiermeister', opts); } catch (e) {}
+  }
 }
 
 function playBeepBurst() {
@@ -1385,6 +1435,7 @@ function stopTimers() {
   clearInterval(ticker); ticker = null;
   timers.forEach((t, i) => stopFiring(i));
   timers = [];
+  stopSilentAudio();
   releaseWakeLock();
   document.getElementById('timer-screen').classList.remove('active');
   document.getElementById('config-screen').classList.remove('hidden');
