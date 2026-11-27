@@ -40,6 +40,15 @@ Diese Datei dokumentiert technische oder organisatorische Entscheidungen, damit 
   - `em_pxPerMm` – Display-Kalibrierung (siehe oben)
 - Begründung: iOS Safari beendet Hintergrund-Tabs aggressiv; Zeit wird absolut über `Date.now()` gerechnet, daher ist Wiederherstellung trivial.
 
+
+### Garzeiten praxis-kalibriert & Gewichtseingabe
+- Datum: 2026-11-27
+- Status: angenommen
+- Kontext: Williams-Formel mit Labor-Zieltemperaturen (62/71/82 °C) lieferte zu kurze Zeiten (M-Ei aus Kühlschrank „weich" 4:12 statt ~6 min). Größe per mm ist ungenau (1 mm Breite ≈ +4,7 % Masse).
+- Entscheidung: `targetTemp()` = 70 / 76 / 84 °C (weich/mittel/hart) → M-Ei 7 °C ≈ 5:49 / 7:21 / 10:08. Gewichtseingabe (g) im Ei-Panel; `dimsFromMass()` rechnet mit B/L = 0,8 auf 0,1 mm zurück. Größen-Presets = Mitte der EU-Klassen (50/58/68/76 g). Maße mit 0,5-mm-Schritten (Slider + Vermessung), Anzeige über `mm()` mit Komma.
+- Begründung: Formel ignoriert Wasserabkühlung beim Einlegen und Schale; Kalibrierung an Praxiswerten statt zusätzlichem Modell. Gewicht ist die physikalisch relevante Größe und per Küchenwaage auf 1 g genau.
+- Auswirkungen: `em_eggs` kann jetzt Dezimal-Maße enthalten (abwärtskompatibel). Feinjustierung pro Nutzer weiterhin über `em_corr`.
+
 ## Hinweise
 - Nur dauerhafte, wiederverwendbare Entscheidungen eintragen.
 - Keine flüchtigen Chat-Zwischenstände hier speichern.

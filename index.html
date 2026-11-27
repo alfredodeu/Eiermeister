@@ -183,6 +183,15 @@
     .field-group { margin-bottom: 14px; }
     .field-group:last-child { margin-bottom: 0; }
     .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mass-input {
+      width: 2.6em; padding: 0; border: none; background: transparent;
+      color: inherit; font: inherit; font-size: 16px; /* ≥16px: kein iOS-Zoom */
+      font-weight: 700; text-align: right;
+      -moz-appearance: textfield;
+    }
+    .mass-input::-webkit-outer-spin-button,
+    .mass-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .mass-input:focus { outline: none; text-decoration: underline; }
     .mass-badge {
       display: inline-flex; align-items: center; gap: 6px;
       font-size: 11px; font-weight: 700;
@@ -841,10 +850,19 @@ function eggMass(Lmm, Bmm) {
   return vol * 1.032e-3;
 }
 function boilingPoint(altM) { return 100 - altM / 294; }
+// Praxis-kalibriert (M-Ei aus Kühlschrank ≈ 5:50 / 7:20 / 10:05 min); die
+// Williams-Laborwerte 62/71/82 °C ignorieren Wasserabkühlung & Schale → zu kurz.
 function targetTemp(h) {
-  if (h <= 0.5) return 62 + (71 - 62) * (h * 2);
-  return 71 + (82 - 71) * ((h - 0.5) * 2);
+  if (h <= 0.5) return 70 + (76 - 70) * (h * 2);
+  return 76 + (84 - 76) * ((h - 0.5) * 2);
 }
+// Gewicht (g) → Maße bei typischem Seitenverhältnis Breite/Länge = 0,8
+const EGG_RATIO = 0.8;
+function dimsFromMass(g) {
+  const L = Math.cbrt(g / ((Math.PI / 6) * EGG_RATIO * EGG_RATIO * 1.032e-3));
+  return { L: Math.round(L * 10) / 10, B: Math.round(L * EGG_RATIO * 10) / 10 };
+}
+function mm(v) { return String(Math.round(v * 10) / 10).replace('.', ','); }
 function cookSec(Lmm, Bmm, hardness, tempC, altM) {
   const M   = eggMass(Lmm, Bmm);
   const c   = 3.7, rho = 1.032, K = 5.4e-3;
@@ -917,13 +935,13 @@ let syncFinish = localStorage.getItem('em_sync') === '1';
 // Persönlicher Korrekturfaktor aus „zu weich / zu hart"-Rückmeldungen (±15 %)
 let timeCorr = clamp(parseFloat(localStorage.getItem('em_corr')) || 1, 0.85, 1.15);
 
-// EU-Gewichtsklassen → typische Maße (Masse per eggMass ≈ 50/58/66/76 g)
+// EU-Gewichtsklassen, jeweils Klassenmitte (S <53, M 53–63, L 63–73, XL ≥73 g)
 const SIZE_PRESETS = [
-  { k: 'S',  L: 52, B: 42 },
-  { k: 'M',  L: 55, B: 44 },
-  { k: 'L',  L: 58, B: 46 },
-  { k: 'XL', L: 61, B: 48 },
-];
+  { k: 'S',  g: 50 },
+  { k: 'M',  g: 58 },
+  { k: 'L',  g: 68 },
+  { k: 'XL', g: 76 },
+].map(p => ({ ...p, ...dimsFromMass(p.g) }));
 
 // Display-Vermessung
 const CARD_LONG_MM  = 85.6;   // ISO/IEC 7810 ID-1 Langseite
@@ -1117,17 +1135,21 @@ function buildCard(egg) {
 
         <div class="field-group">
           <div class="field-label" style="display:flex;justify-content:space-between;align-items:center">
-            <span>Ei-Größe (Lineal)</span>
-            <span class="mass-badge" id="mass-${egg.id}">~${Math.round(eggMass(egg.eggL,egg.eggB))} g</span>
+            <span>Ei-Größe</span>
+            <label class="mass-badge" title="Gewicht eingeben (Küchenwaage) – am genauesten">⚖️
+              <input class="mass-input" id="mass-${egg.id}" type="number" inputmode="numeric"
+                min="35" max="95" step="1" aria-label="Gewicht Ei ${egg.id} in Gramm"
+                value="${Math.round(eggMass(egg.eggL,egg.eggB))}"
+                onfocus="this.select()" onchange="onMassInput(${egg.id},this)"> g</label>
           </div>
           <div class="dim-grid">
             <div>
               <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
-                <span>↕ Länge</span><span id="lblL-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggL} mm</span>
+                <span>↕ Länge</span><span id="lblL-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${mm(egg.eggL)} mm</span>
               </div>
               <div class="hardness-wrap">
                 <input type="range" class="hardness-slider" aria-label="Länge"
-                  id="slL-${egg.id}" min="45" max="75" step="1" value="${egg.eggL}"
+                  id="slL-${egg.id}" min="45" max="75" step="0.5" value="${egg.eggL}"
                   style="--val:${((egg.eggL-45)/30).toFixed(3)}"
                   oninput="onDimSlider(${egg.id},'eggL',this,45,30)">
                 <div class="hardness-labels"><span>45</span><span>75 mm</span></div>
@@ -1135,11 +1157,11 @@ function buildCard(egg) {
             </div>
             <div>
               <div style="font-size:11px;color:var(--em-text-muted);margin-bottom:6px;display:flex;justify-content:space-between">
-                <span>↔ Breite</span><span id="lblB-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${egg.eggB} mm</span>
+                <span>↔ Breite</span><span id="lblB-${egg.id}" style="color:var(--em-accent-1);font-weight:700">${mm(egg.eggB)} mm</span>
               </div>
               <div class="hardness-wrap">
                 <input type="range" class="hardness-slider" aria-label="Breite"
-                  id="slB-${egg.id}" min="35" max="58" step="1" value="${egg.eggB}"
+                  id="slB-${egg.id}" min="35" max="58" step="0.5" value="${egg.eggB}"
                   style="--val:${((egg.eggB-35)/23).toFixed(3)}"
                   oninput="onDimSlider(${egg.id},'eggB',this,35,23)">
                 <div class="hardness-labels"><span>35</span><span>58 mm</span></div>
@@ -1222,17 +1244,28 @@ function onSlider(id, el) {
   upd(id, 'hardness', parseFloat(el.value));
 }
 function onDimSlider(id, field, el, min, range) {
-  const val = parseInt(el.value, 10);
+  const val = parseFloat(el.value);
   el.style.setProperty('--val', ((val - min) / range).toFixed(3));
   const lbl = document.getElementById(field === 'eggL' ? `lblL-${id}` : `lblB-${id}`);
-  if (lbl) lbl.textContent = `${val} mm`;
+  if (lbl) lbl.textContent = `${mm(val)} mm`;
   upd(id, field, val);
   const egg = eggs.find(e => e.id === id);
   if (egg) {
-    const badge = document.getElementById(`mass-${id}`);
-    if (badge) badge.textContent = `~${Math.round(eggMass(egg.eggL, egg.eggB))} g`;
+    const inp = document.getElementById(`mass-${id}`);
+    if (inp) inp.value = Math.round(eggMass(egg.eggL, egg.eggB));
     updatePresetActive(egg);
   }
+}
+function onMassInput(id, el) {
+  const egg = eggs.find(e => e.id === id);
+  const g = parseFloat(String(el.value).replace(',', '.'));
+  if (!egg) return;
+  if (isNaN(g)) { el.value = Math.round(eggMass(egg.eggL, egg.eggB)); return; }
+  const d = dimsFromMass(clamp(g, 35, 95));
+  egg.eggL = clamp(d.L, 45, 75);
+  egg.eggB = clamp(d.B, 35, 58);
+  saveEggs();
+  renderEggs();
 }
 function updatePresetActive(egg) {
   SIZE_PRESETS.forEach(p => document.getElementById(`sz-${p.k}-${egg.id}`)
@@ -1466,7 +1499,7 @@ function buildTimerCards() {
       <div class="timer-info">
         <div class="timer-egg-name">Ei ${t.egg.id}</div>
         <div class="timer-egg-desc">
-          ${t.egg.eggL}×${t.egg.eggB} mm · ~${Math.round(eggMass(t.egg.eggL,t.egg.eggB))} g · ${hardLabel(t.egg.hardness)} ·
+          ${mm(t.egg.eggL)}×${mm(t.egg.eggB)} mm · ~${Math.round(eggMass(t.egg.eggL,t.egg.eggB))} g · ${hardLabel(t.egg.hardness)} ·
           ${t.egg.tempC <= 10 ? '🧊' : '🌡️'} ${t.egg.tempC} °C
         </div>
         <div class="status-pill" id="sp-${i}">
@@ -1539,7 +1572,7 @@ function onDone(egg, timerIdx) {
   playBeepBurst();
   fireTimer(timerIdx);
   toast(`Ei ${egg.id} (${hardLabel(egg.hardness)}) ist fertig! 🔊`, 'success');
-  notify(`Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${egg.eggL}×${egg.eggB} mm — ist fertig!`);
+  notify(`Ei ${egg.id} — ${hardLabel(egg.hardness)}, ${mm(egg.eggL)}×${mm(egg.eggB)} mm — ist fertig!`);
 }
 
 function fireTimer(timerIdx) {
@@ -1843,14 +1876,14 @@ function drawEgg() {
 function applyMeasure() {
   const egg = eggs.find(e => e.id === measureEggId);
   if (!egg) { closeMeasure(); return; }
-  const L = clamp(Math.round(measL), 45, 75);
-  const B = clamp(Math.round(measB), 35, 58);
+  const L = clamp(Math.round(measL * 2) / 2, 45, 75);   // 0,5-mm-Raster behalten
+  const B = clamp(Math.round(measB * 2) / 2, 35, 58);
   egg.eggL = L;
   egg.eggB = B;
   saveEggs();
   renderEggs();
   closeMeasure();
-  toast(`Ei ${egg.id}: ${L} × ${B} mm übernommen`, 'success');
+  toast(`Ei ${egg.id}: ${mm(L)} × ${mm(B)} mm übernommen`, 'success');
 }
 
 // ═══════════════════════════════════════
