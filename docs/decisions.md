@@ -48,6 +48,7 @@ Diese Datei dokumentiert technische oder organisatorische Entscheidungen, damit 
 - Entscheidung: `targetTemp()` = 70 / 76 / 84 °C (weich/mittel/hart) → M-Ei 7 °C ≈ 5:49 / 7:21 / 10:08. Gewichtseingabe (g) im Ei-Panel; `dimsFromMass()` rechnet mit B/L = 0,8 auf 0,1 mm zurück. Größen-Presets = Mitte der EU-Klassen (50/58/68/76 g). Maße mit 0,5-mm-Schritten (Slider + Vermessung), Anzeige über `mm()` mit Komma.
 - Begründung: Formel ignoriert Wasserabkühlung beim Einlegen und Schale; Kalibrierung an Praxiswerten statt zusätzlichem Modell. Gewicht ist die physikalisch relevante Größe und per Küchenwaage auf 1 g genau.
 - Auswirkungen: `em_eggs` kann jetzt Dezimal-Maße enthalten (abwärtskompatibel). Feinjustierung pro Nutzer weiterhin über `em_corr`.
+- Nachtrag Vermessung: Kalibrier-Regler `step="0.1"` (vorher 100 Stufen ≈ 3,5 px ≈ 2 % Massefehler je Stufe) plus Feintasten ‹ › (±0,3) bzw. −/+ (±0,5 mm) über `nudge()`; Buttons 44 px mit `touch-action: manipulation` gegen iOS-Doppeltipp-Zoom. Kalibrierfehler wirkt ×3 auf die Masse (L·B²) → wichtigster Hebel ohne Waage.
 
 ## Hinweise
 - Nur dauerhafte, wiederverwendbare Entscheidungen eintragen.

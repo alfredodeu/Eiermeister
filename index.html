@@ -580,6 +580,16 @@
     .meas-hint { font-size: 12px; line-height: 1.45; color: var(--em-text-muted); }
     .meas-hint b { color: var(--em-text); font-weight: 700; }
     .meas-read { font-size: 21px; font-weight: 800; color: var(--em-accent-1); }
+    .fine-row { display: grid; grid-template-columns: 44px 1fr 44px; gap: 8px; align-items: center; }
+    .fine-btn {
+      height: 44px; border-radius: 12px;
+      border: 1px solid var(--em-border);
+      background: var(--em-card-bg); color: var(--em-text);
+      font-size: 22px; font-weight: 700; font-family: inherit; line-height: 1;
+      cursor: pointer; touch-action: manipulation; /* kein Doppeltipp-Zoom auf iOS */
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fine-btn:active { background: var(--em-card-hover); }
     .meas-lbl {
       font-size: 11px; color: var(--em-text-muted);
       display: flex; justify-content: space-between; margin-top: 2px;
@@ -806,8 +816,12 @@
         <b>linke Bildschirmkante</b>, unten in die Ecke. Schieb den Regler, bis der
         Rahmen die Karte exakt umschließt.
       </div>
-      <input type="range" class="hardness-slider" id="cal-slider" aria-label="Kartengröße"
-             min="0" max="100" value="70" oninput="onCalSlider(this)">
+      <div class="fine-row">
+        <button type="button" class="fine-btn" aria-label="Rahmen kleiner" onclick="nudge('cal-slider',-0.3)">‹</button>
+        <input type="range" class="hardness-slider" id="cal-slider" aria-label="Kartengröße"
+               min="0" max="100" step="0.1" value="70" oninput="onCalSlider(this)">
+        <button type="button" class="fine-btn" aria-label="Rahmen größer" onclick="nudge('cal-slider',0.3)">›</button>
+      </div>
       <div class="meas-row">
         <button class="btn-cancel" onclick="closeMeasure()">Abbrechen</button>
         <button class="btn-ok" onclick="saveCalibration()">Passt – weiter</button>
@@ -823,11 +837,19 @@
       </div>
       <div class="meas-read"><span id="egg-read">55 × 45 mm</span></div>
       <div class="meas-lbl"><span>↕ Länge</span><span id="egg-l-val">55 mm</span></div>
-      <input type="range" class="hardness-slider" id="egg-l-slider" aria-label="Ei-Länge"
-             min="45" max="75" step="0.5" value="55" oninput="onEggMeasSlider()">
+      <div class="fine-row">
+        <button type="button" class="fine-btn" aria-label="Länge −0,5 mm" onclick="nudge('egg-l-slider',-0.5)">−</button>
+        <input type="range" class="hardness-slider" id="egg-l-slider" aria-label="Ei-Länge"
+               min="45" max="75" step="0.5" value="55" oninput="onEggMeasSlider()">
+        <button type="button" class="fine-btn" aria-label="Länge +0,5 mm" onclick="nudge('egg-l-slider',0.5)">+</button>
+      </div>
       <div class="meas-lbl"><span>↔ Breite</span><span id="egg-b-val">45 mm</span></div>
-      <input type="range" class="hardness-slider" id="egg-b-slider" aria-label="Ei-Breite"
-             min="35" max="58" step="0.5" value="45" oninput="onEggMeasSlider()">
+      <div class="fine-row">
+        <button type="button" class="fine-btn" aria-label="Breite −0,5 mm" onclick="nudge('egg-b-slider',-0.5)">−</button>
+        <input type="range" class="hardness-slider" id="egg-b-slider" aria-label="Ei-Breite"
+               min="35" max="58" step="0.5" value="45" oninput="onEggMeasSlider()">
+        <button type="button" class="fine-btn" aria-label="Breite +0,5 mm" onclick="nudge('egg-b-slider',0.5)">+</button>
+      </div>
       <button class="btn-ok" style="width:100%;margin-top:10px" onclick="applyMeasure()">Übernehmen</button>
       <button type="button" onclick="recalibrate()"
         style="width:100%;margin-top:8px;padding:8px;background:none;border:none;
@@ -1841,6 +1863,14 @@ function showEggPanel() {
   bEl.value = clamp(measB, +bEl.min, +bEl.max);
   onEggMeasSlider();
 }
+// Feintasten: Regler um delta verschieben und dessen input-Handler auslösen
+function nudge(sliderId, delta) {
+  const el = document.getElementById(sliderId);
+  if (!el) return;
+  const v = clamp(+el.value + delta, +el.min, +el.max);
+  el.value = Math.round(v * 10) / 10;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
 function onEggMeasSlider() {
   const lEl = document.getElementById('egg-l-slider');
   const bEl = document.getElementById('egg-b-slider');
@@ -1848,10 +1878,10 @@ function onEggMeasSlider() {
   measB = parseFloat(bEl.value);
   lEl.style.setProperty('--val', (measL - lEl.min) / (lEl.max - lEl.min));
   bEl.style.setProperty('--val', (measB - bEl.min) / (bEl.max - bEl.min));
-  document.getElementById('egg-l-val').textContent = `${measL.toFixed(0)} mm`;
-  document.getElementById('egg-b-val').textContent = `${measB.toFixed(0)} mm`;
+  document.getElementById('egg-l-val').textContent = `${mm(measL)} mm`;
+  document.getElementById('egg-b-val').textContent = `${mm(measB)} mm`;
   document.getElementById('egg-read').textContent =
-    `${measL.toFixed(0)} × ${measB.toFixed(0)} mm · ~${Math.round(eggMass(measL, measB))} g`;
+    `${mm(measL)} × ${mm(measB)} mm · ~${Math.round(eggMass(measL, measB))} g`;
   drawEgg();
 }
 function drawEgg() {
@@ -1868,8 +1898,8 @@ function drawEgg() {
       stroke="rgba(245,158,11,0.55)" stroke-width="1" stroke-dasharray="6 6"/>
     <line x1="0" y1="${topY.toFixed(1)}" x2="${measArea.w.toFixed(1)}" y2="${topY.toFixed(1)}"
       stroke="rgba(245,158,11,0.55)" stroke-width="1" stroke-dasharray="6 6"/>
-    <text x="${(wpx + 8).toFixed(1)}" y="${(H - 12).toFixed(1)}" fill="#f59e0b" font-size="13" font-weight="700">${measB.toFixed(0)} mm</text>
-    <text x="8" y="${(topY - 8).toFixed(1)}" fill="#f59e0b" font-size="13" font-weight="700">${measL.toFixed(0)} mm</text>
+    <text x="${(wpx + 8).toFixed(1)}" y="${(H - 12).toFixed(1)}" fill="#f59e0b" font-size="13" font-weight="700">${mm(measB)} mm</text>
+    <text x="8" y="${(topY - 8).toFixed(1)}" fill="#f59e0b" font-size="13" font-weight="700">${mm(measL)} mm</text>
     <circle cx="0" cy="${H.toFixed(1)}" r="5" fill="#f59e0b"/>
   `;
 }
